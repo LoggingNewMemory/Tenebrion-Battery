@@ -88,7 +88,7 @@
           <mxGeometry height="70" width="230" x="195" y="940" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-18" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="A note from Yamada&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Since the &quot;&lt;span style=&quot;text-align: center; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;cmd deviceidle get screen&quot; summoning a lot of shell tasks. I need to make&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Netlink socket daemon just monitor the screen. that works with every SoC and Brands, Basically all devices -_-&lt;br&gt;&lt;br&gt;This can be done either in C or arm64 or arm32 ASM&lt;/span&gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="135" width="300" x="240" y="25" as="geometry" />
+          <mxGeometry height="135" width="300" x="237.5" y="25" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-25" edge="1" parent="1" source="nEbZi96V4aJNZWkyk8Nh-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="QbItls2lpJ5c8HYFAgJg-33">
           <mxGeometry relative="1" as="geometry" />

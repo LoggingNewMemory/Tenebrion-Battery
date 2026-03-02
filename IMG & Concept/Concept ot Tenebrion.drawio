@@ -7,7 +7,7 @@
         <mxCell id="QbItls2lpJ5c8HYFAgJg-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;" value="Tenebrion Battery&lt;div&gt;By: Kanagawa Yamada&lt;/div&gt;" vertex="1">
           <mxGeometry height="40" width="140" x="20" y="30" as="geometry" />
         </mxCell>
-        <mxCell id="QbItls2lpJ5c8HYFAgJg-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Tenebrion Core&lt;div&gt;(Main Daemon) - C / ASM arm64 or arm32&lt;/div&gt;" vertex="1">
+        <mxCell id="QbItls2lpJ5c8HYFAgJg-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Tenebrion Core&lt;div&gt;(Main Daemon) - C / ASM arm64&lt;/div&gt;&lt;div&gt;(NO SUPPORT FOR 32 BIT)&lt;/div&gt;" vertex="1">
           <mxGeometry height="50" width="200" x="20" y="85" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-12" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;" target="QbItls2lpJ5c8HYFAgJg-18">
