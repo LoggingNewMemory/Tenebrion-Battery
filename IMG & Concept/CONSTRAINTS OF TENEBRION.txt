@@ -25,16 +25,17 @@ policy0  policy6  schedhorizon
 
 Example:
 
-# On policy0
+On policy0
 TENEBRION_CUST_FREQ_0_MIN=968000
 TENEBRION_CUST_FREQ_0_MID=1393000
 TENEBRION_CUST_FREQ_0_MAX=1916000
 
-# On policy6
+On policy6
 TENEBRION_CUST_FREQ_6_MIN=898000
 TENEBRION_CUST_FREQ_6_MID=1418000
 TENEBRION_CUST_FREQ_6_MAX=2306000
 
+And so on... Depending on how many policy it have
 #############################################
 
 TENEBRION_STATE=0 / 1
