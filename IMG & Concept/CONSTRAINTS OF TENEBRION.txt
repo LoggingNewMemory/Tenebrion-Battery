@@ -11,6 +11,8 @@ TENEBRION_HALF=0/1
 TENEBRION_FORGIVE=0/1
 - On Battery (Screen Off) use the Half Freq CPU
 
+#############################################
+
 TENEBRION_CUST_FREQ=0/1
 - If Enabled then ignore all Min,Mid,Max CPUFreq. It will use:
 
@@ -36,10 +38,13 @@ TENEBRION_CUST_FREQ_6_MID=1418000
 TENEBRION_CUST_FREQ_6_MAX=2306000
 
 And so on... Depending on how many policy it have
+
 #############################################
 
 TENEBRION_STATE=0 / 1
-To determine which state changed.
+To determine which state changed. (But most likely it won't be used as we will use daemon to handle it instead of write it on disk)
 
 0 = Screen Off
 1 = Screen On
+
+#############################################
