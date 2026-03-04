@@ -81,12 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         await execRoot(`
             killall TenebrionDaemon_arm64 2>/dev/null
-            # Locate the module dir dynamically and run the startup script
             MODDIR=$(find /data/adb/modules -maxdepth 2 -name "service.sh" | grep -i "tenebrion" | head -n 1)
             if [ -n "$MODDIR" ]; then
                 sh "$MODDIR" &
             else
-                # Fallback path
                 sh /data/adb/modules/Tenebrion/service.sh &
             fi
         `);
@@ -95,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRestart.innerText = "Restart Tenebrion";
             btnRestart.style.opacity = "1";
             btnRestart.style.pointerEvents = "auto";
-            loadMainData(); // Refresh state
+            loadMainData(); 
         }, 2000);
     });
 
@@ -116,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if pgrep -f TenebrionDaemon >/dev/null 2>&1; then STATUS="Running"; else STATUS="Stopped"; fi
 
-        # Detect Endfield Engine / Project Raco
         if pgrep -i -f "endfield" >/dev/null 2>&1 || pgrep -i -f "raco" >/dev/null 2>&1; then
             ENDFIELD="1"
         else
@@ -148,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('battery-capacity').innerText = cap + " mAh";
             
-            // Status and Endfield Engine UI Logic
             const elStatus = document.getElementById('service-status');
             const endfieldWarning = document.getElementById('endfield-warning');
 
@@ -178,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === 6. SAVING TOGGLES ===
-        async function saveToggles() {
+    async function saveToggles() {
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
         
@@ -187,7 +183,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mkdir -p /data/Tenebrion
         touch $FILE
         
-        # Ensure file ends with a newline to prevent merged lines
         [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
         
         if grep -q "^TENEBRION_HALF=" $FILE; then
@@ -208,22 +203,24 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleHalf.addEventListener('change', saveToggles);
     toggleForgive.addEventListener('change', saveToggles);
 
-    // === 7. DATA FETCHING (CPU CUSTOMIZATION) ===
+    // === 7. DATA FETCHING (CPU CUSTOMIZATION WITH DROPDOWNS) ===
     async function loadCPUData() {
         const container = document.getElementById('cluster-container');
         container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Scanning CPU Clusters...</div>';
 
+        // Added AVAIL extraction to grab safe kernel frequencies
         const bashPayload = `
         for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             [ ! -d "$policy" ] && continue
             IDX=$(basename $policy | sed 's/policy//')
             MIN=$(cat $policy/cpuinfo_min_freq 2>/dev/null || echo "0")
             MAX=$(cat $policy/cpuinfo_max_freq 2>/dev/null || echo "0")
+            AVAIL=$(cat $policy/scaling_available_frequencies 2>/dev/null || echo "")
             SMIN=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MIN=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
             SMID=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MID=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
             SMAX=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MAX=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
             
-            echo "\${IDX}|\${MIN}|\${MAX}|\${SMIN}|\${SMID}|\${SMAX}"
+            echo "\${IDX}|\${MIN}|\${MAX}|\${SMIN}|\${SMID}|\${SMAX}|\${AVAIL}"
         done
         `;
 
@@ -240,7 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             lines.forEach(line => {
                 if (!line.includes('|')) return;
-                const [idxStr, minStr, maxStr, sMinStr, sMidStr, sMaxStr] = line.split('|');
+                const parts = line.split('|');
+                const idxStr = parts[0];
+                const minStr = parts[1];
+                const maxStr = parts[2];
+                const sMinStr = parts[3];
+                const sMidStr = parts[4];
+                const sMaxStr = parts[5];
+                const availStr = parts[6] || "";
                 
                 let idx = parseInt(idxStr);
                 let name = "Cluster " + idx;
@@ -250,15 +254,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let min = parseInt(minStr) || 0;
                 let max = parseInt(maxStr) || 0;
-                let mid = Math.floor((min + max) / 2);
 
-                if (sMinStr) min = parseInt(sMinStr);
-                if (sMidStr) mid = parseInt(sMidStr);
-                if (sMaxStr) max = parseInt(sMaxStr);
+                // Parse available freqs or fallback to min/max range
+                let availFreqs = [];
+                if (availStr.trim()) {
+                    availFreqs = availStr.trim().split(/\s+/).map(Number);
+                } else {
+                    availFreqs = [min, Math.floor((min + max) / 2), max];
+                }
+                
+                // Ensure array is unique & sorted ascending
+                availFreqs = [...new Set(availFreqs)].sort((a, b) => a - b);
 
-                let minMhz = Math.floor(min / 1000);
-                let midMhz = Math.floor(mid / 1000);
-                let maxMhz = Math.floor(max / 1000);
+                // Helper to snap arbitrary numbers to the closest valid frequency
+                function getClosestFreq(target) {
+                    return availFreqs.reduce((prev, curr) => 
+                        Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
+                    );
+                }
+
+                let actualMin = sMinStr ? parseInt(sMinStr) : min;
+                let actualMax = sMaxStr ? parseInt(sMaxStr) : max;
+                let actualMid = sMidStr ? parseInt(sMidStr) : Math.floor((min + max) / 2);
+
+                // Snap values to available list (prevents invalid old saves from breaking UI)
+                actualMin = getClosestFreq(actualMin);
+                actualMid = getClosestFreq(actualMid);
+                actualMax = getClosestFreq(actualMax);
+
+                let minMhz = Math.floor(actualMin / 1000);
+                let midMhz = Math.floor(actualMid / 1000);
+                let maxMhz = Math.floor(actualMax / 1000);
+
+                // Helper to build dropdown options
+                function buildOptions(targetMhz) {
+                    return availFreqs.map(f => {
+                        let mhz = Math.floor(f / 1000);
+                        return `<option value="${mhz}" ${mhz === targetMhz ? 'selected' : ''}>${mhz}</option>`;
+                    }).join('');
+                }
 
                 container.innerHTML += `
                     <div class="cluster-title">- ${name}</div>
@@ -266,21 +300,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="list-item">
                             <span class="item-label">Min Freq</span>
                             <div class="input-wrapper">
-                                <input type="number" class="freq-input" data-policy="${idx}" data-type="min" value="${minMhz}">
+                                <select class="freq-select" data-policy="${idx}" data-type="min">
+                                    ${buildOptions(minMhz)}
+                                </select>
                                 <span>Mhz</span>
                             </div>
                         </div>
                         <div class="list-item">
                             <span class="item-label">Mid Freq</span>
                             <div class="input-wrapper">
-                                <input type="number" class="freq-input" data-policy="${idx}" data-type="mid" value="${midMhz}">
+                                <select class="freq-select" data-policy="${idx}" data-type="mid">
+                                    ${buildOptions(midMhz)}
+                                </select>
                                 <span>Mhz</span>
                             </div>
                         </div>
                         <div class="list-item">
                             <span class="item-label">Max Freq</span>
                             <div class="input-wrapper">
-                                <input type="number" class="freq-input" data-policy="${idx}" data-type="max" value="${maxMhz}">
+                                <select class="freq-select" data-policy="${idx}" data-type="max">
+                                    ${buildOptions(maxMhz)}
+                                </select>
                                 <span>Mhz</span>
                             </div>
                         </div>
@@ -306,23 +346,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let cmd = `
         FILE="/data/Tenebrion/tenebrion.txt"
         
-        # 1. Ensure file ends with a newline to prevent concatenation
         [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
 
-        # 2. Update or add TENEBRION_CUST_FREQ toggle
         if grep -q "^TENEBRION_CUST_FREQ=" $FILE; then
             sed -i "s/^TENEBRION_CUST_FREQ=.*/TENEBRION_CUST_FREQ=1/" $FILE
         else
             echo "TENEBRION_CUST_FREQ=1" >> $FILE
         fi
 
-        # 3. Clean up old frequency values
         sed -i '/^TENEBRION_CUST_FREQ_[0-9]*_/d' $FILE
-        
-        # 4. Append new frequency values cleanly
         `;
         
-        const inputs = document.querySelectorAll('.freq-input');
+        // Target the new select tags
+        const inputs = document.querySelectorAll('.freq-select');
         inputs.forEach(input => {
             const khz = parseInt(input.value) * 1000; 
             const type = input.dataset.type.toUpperCase();
@@ -347,7 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pollingInterval = setInterval(loadMainData, 5000); 
     }
 
-    // Init
     loadMainData();
     startPolling();
 });
