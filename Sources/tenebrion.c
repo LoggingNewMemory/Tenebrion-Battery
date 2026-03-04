@@ -108,16 +108,16 @@ int main() {
 
         current_state = get_screen_state(&config);
 
-        if (current_state != -1 && current_state != last_state) {
+if (current_state != -1 && current_state != last_state) {
             
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
-                system("/data/Tenebrion/normal"); 
-                asm_write_file("/data/Tenebrion/tenebrion.txt", "TENEBRION_STATE=1\n", 18);
+                system("/data/adb/modules/TenebrionBattery/Binaries/normal"); 
+                asm_write_file("/dev/tenebrion_state", "1\n", 2); 
             } else if (current_state == 0) {
                 printf("[Tenebrion] Screen Off detected. Executing Battery Binary...\n");
-                system("/data/Tenebrion/battery"); 
-                asm_write_file("/data/Tenebrion/tenebrion.txt", "TENEBRION_STATE=0\n", 18);
+                system("/data/adb/modules/TenebrionBattery/Binaries/battery"); 
+                asm_write_file("/dev/tenebrion_state", "0\n", 2); 
             }
 
             last_state = current_state;
