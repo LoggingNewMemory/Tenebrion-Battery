@@ -30,7 +30,6 @@ cd ../../
 echo "[3/3] Deploying Backend CGI API..."
 cp "$SRC_DIR/WebUI/backend.sh" "$OUT_DIR/webroot/cgi-bin/api"
 chmod 755 "$OUT_DIR/webroot/cgi-bin/api"
-# Make sure the banner is copied if it's not imported in JS/HTML
-cp "$SRC_DIR/WebUI/Banner.jpg" "$OUT_DIR/webroot/" 2>/dev/null
+cp "$SRC_DIR/WebUI/Banner.png" "$OUT_DIR/webroot/" 2>/dev/null
 
 echo "Build complete! Output is in $OUT_DIR/"

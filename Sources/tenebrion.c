@@ -6,6 +6,7 @@
 
 // External ARM64 Assembly functions
 extern int asm_read_file(const char* path, char* buffer, int max_len);
+extern int asm_write_file(const char* path, const char* buffer, int len);
 
 // Configuration Structure
 typedef struct {
@@ -108,7 +109,7 @@ int main() {
 
         current_state = get_screen_state(&config);
 
-if (current_state != -1 && current_state != last_state) {
+        if (current_state != -1 && current_state != last_state) {
             
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
