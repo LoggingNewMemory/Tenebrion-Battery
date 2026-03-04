@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tenebrion Battery</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -31,29 +31,29 @@
 
             <div class="card list-card">
                 <div class="list-item">
-                    <span>Service Status</span>
+                    <span class="item-label">Service Status</span>
                     <span id="service-status" class="value">Checking...</span>
                 </div>
                 <div class="list-item">
-                    <span>System Uptime</span>
+                    <span class="item-label">Service Uptime</span>
                     <span id="service-uptime" class="value">--:--:--</span>
                 </div>
                 <div class="list-item">
-                    <span>Current Battery</span>
+                    <span class="item-label">Current Battery</span>
                     <span id="current-battery" class="value">--%</span>
                 </div>
             </div>
 
             <div class="card list-card">
                 <div class="list-item toggle-row">
-                    <span>Tenebrion Half</span>
+                    <span class="item-label">Tenebrion Half</span>
                     <label class="switch red-switch">
                         <input type="checkbox" id="toggle-half">
                         <span class="slider"></span>
                     </label>
                 </div>
                 <div class="list-item toggle-row">
-                    <span>Tenebrion Forgive</span>
+                    <span class="item-label">Tenebrion Forgive</span>
                     <label class="switch blue-switch">
                         <input type="checkbox" id="toggle-forgive">
                         <span class="slider"></span>
@@ -72,9 +72,10 @@
             </header>
             
             <div id="cluster-container">
-            </div>
+                </div>
         </div>
     </div>
-    <script type="module" src="app.js"></script>
+    
+    <script src="app.js"></script>
 </body>
 </html>
