@@ -37,7 +37,8 @@ TENEBRION_CUST_FREQ_6_MIN=898000
 TENEBRION_CUST_FREQ_6_MID=1418000
 TENEBRION_CUST_FREQ_6_MAX=2306000
 
-And so on... Depending on how many policy it have
+And so on... Depending on how many policy it have. I'm conflicted on where should I put the detection. Should I pre-defined it at tenebrion.txt
+Then fill it during installation then user can customize using WebUI, Or I write it on WebUI?
 
 #############################################
 
@@ -46,5 +47,31 @@ To determine which state changed. (But most likely it won't be used as we will u
 
 0 = Screen Off
 1 = Screen On
+
+#############################################
+
+The list of detecting screen state, this need to be done during installation (customize.sh) so we don't keep polling each time execution.
+
+Determine where the path we will use:
+
+Common Path
+"/sys/class/drm/card0-DSI-1/dpms" - "On" or "Off"
+
+Second Path
+"/sys/class/leds/lcd-backlight/brightness" - Off then value is 0, if on the value more than 0
+
+Compability using cmd
+"cmd deviceidle get screen" - "false" or "true"
+
+Therefore the constraints defined is 
+
+TENEBRION_COMMON_PATH=0/1 
+(For "/sys/class/drm/card0-DSI-1/dpms" - "On" or "Off")
+
+TENEBRION_SECOND_PATH=0/1
+("/sys/class/leds/lcd-backlight/brightness" - Off then value is 0, if on the value more than 0)
+
+TENEBRION_COMPABILITY=0/1
+("cmd deviceidle get screen" - "false" or "true")
 
 #############################################
