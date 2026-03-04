@@ -178,24 +178,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === 6. SAVING TOGGLES ===
-    async function saveToggles() {
+        async function saveToggles() {
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
         
         const cmd = `
+        FILE="/data/Tenebrion/tenebrion.txt"
         mkdir -p /data/Tenebrion
-        touch /data/Tenebrion/tenebrion.txt
+        touch $FILE
         
-        if grep -q "^TENEBRION_HALF=" /data/Tenebrion/tenebrion.txt; then
-            sed -i "s/^TENEBRION_HALF=.*/TENEBRION_HALF=${half}/" /data/Tenebrion/tenebrion.txt
+        # Ensure file ends with a newline to prevent merged lines
+        [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
+        
+        if grep -q "^TENEBRION_HALF=" $FILE; then
+            sed -i "s/^TENEBRION_HALF=.*/TENEBRION_HALF=${half}/" $FILE
         else
-            echo "TENEBRION_HALF=${half}" >> /data/Tenebrion/tenebrion.txt
+            echo "TENEBRION_HALF=${half}" >> $FILE
         fi
 
-        if grep -q "^TENEBRION_FORGIVE=" /data/Tenebrion/tenebrion.txt; then
-            sed -i "s/^TENEBRION_FORGIVE=.*/TENEBRION_FORGIVE=${forgive}/" /data/Tenebrion/tenebrion.txt
+        if grep -q "^TENEBRION_FORGIVE=" $FILE; then
+            sed -i "s/^TENEBRION_FORGIVE=.*/TENEBRION_FORGIVE=${forgive}/" $FILE
         else
-            echo "TENEBRION_FORGIVE=${forgive}" >> /data/Tenebrion/tenebrion.txt
+            echo "TENEBRION_FORGIVE=${forgive}" >> $FILE
         fi
         `;
         await execRoot(cmd);
@@ -300,13 +304,22 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSave.style.pointerEvents = "none";
         
         let cmd = `
-        if grep -q "^TENEBRION_CUST_FREQ=" /data/Tenebrion/tenebrion.txt; then
-            sed -i "s/^TENEBRION_CUST_FREQ=.*/TENEBRION_CUST_FREQ=1/" /data/Tenebrion/tenebrion.txt
+        FILE="/data/Tenebrion/tenebrion.txt"
+        
+        # 1. Ensure file ends with a newline to prevent concatenation
+        [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
+
+        # 2. Update or add TENEBRION_CUST_FREQ toggle
+        if grep -q "^TENEBRION_CUST_FREQ=" $FILE; then
+            sed -i "s/^TENEBRION_CUST_FREQ=.*/TENEBRION_CUST_FREQ=1/" $FILE
         else
-            echo "TENEBRION_CUST_FREQ=1" >> /data/Tenebrion/tenebrion.txt
+            echo "TENEBRION_CUST_FREQ=1" >> $FILE
         fi
 
-        sed -i '/^TENEBRION_CUST_FREQ_[0-9]*_/d' /data/Tenebrion/tenebrion.txt
+        # 3. Clean up old frequency values
+        sed -i '/^TENEBRION_CUST_FREQ_[0-9]*_/d' $FILE
+        
+        # 4. Append new frequency values cleanly
         `;
         
         const inputs = document.querySelectorAll('.freq-input');
