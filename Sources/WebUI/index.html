@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenebrion Battery</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="main-screen" class="screen active">
+            <header class="banner" style="background-image: url('Banner.jpg');">
+                <div class="banner-overlay">
+                    <p class="subtitle">Tenebrion Battery</p>
+                    <h1 class="title">Kamui Tenebrion</h1>
+                    <p class="version">1.0 | Kanagawa Yamada</p>
+                    <p class="tagline">Written in C and Assembly</p>
+                </div>
+            </header>
+
+            <div class="grid-2">
+                <div class="card">
+                    <span class="label">Device</span>
+                    <strong id="device-model">Loading...</strong>
+                </div>
+                <div class="card">
+                    <span class="label">Battery</span>
+                    <strong id="battery-capacity">-- mAh</strong>
+                </div>
+            </div>
+
+            <div class="card list-card">
+                <div class="list-item">
+                    <span>Service Status</span>
+                    <span id="service-status" class="value">Checking...</span>
+                </div>
+                <div class="list-item">
+                    <span>System Uptime</span>
+                    <span id="service-uptime" class="value">--:--:--</span>
+                </div>
+                <div class="list-item">
+                    <span>Current Battery</span>
+                    <span id="current-battery" class="value">--%</span>
+                </div>
+            </div>
+
+            <div class="card list-card">
+                <div class="list-item toggle-row">
+                    <span>Tenebrion Half</span>
+                    <label class="switch red-switch">
+                        <input type="checkbox" id="toggle-half">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="list-item toggle-row">
+                    <span>Tenebrion Forgive</span>
+                    <label class="switch blue-switch">
+                        <input type="checkbox" id="toggle-forgive">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <button id="btn-customize" class="primary-btn">Customize CPU Frequencies</button>
+        </div>
+
+        <div id="cpu-screen" class="screen">
+            <header class="header-nav">
+                <button id="btn-back" class="icon-btn">← Back</button>
+                <h2>CPU Clusters</h2>
+                <button id="btn-save" class="icon-btn primary-text">Save</button>
+            </header>
+            
+            <div id="cluster-container">
+                </div>
+        </div>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
