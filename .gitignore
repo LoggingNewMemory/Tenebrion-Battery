@@ -3,3 +3,4 @@ Sources/WebUI/.parcel-cache
 Sources/WebUI/package-lock.json
 Modules/Binaries/*
 Modules/webroot/*
+Build/*
