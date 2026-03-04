@@ -1,17 +1,44 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    const ksuInsets = document.createElement('link');
+    ksuInsets.rel = 'stylesheet';
+    ksuInsets.href = '/internal/insets.css';
+    document.head.appendChild(ksuInsets);
     // -----------------------------------------
     // 1. KernelSU Root Execution Bridge
     // -----------------------------------------
     async function execRoot(cmd) {
         try {
-            const res = await fetch('/exec', { 
-                method: 'POST', 
-                body: cmd 
-            });
-            return await res.text();
+            // Check if we are running inside the KernelSU Manager WebUI environment
+            if (typeof window.ksu !== 'undefined' && typeof window.ksu.exec === 'function') {
+                // Native KSU call: synchronous execution returning a stringified JSON
+                const responseStr = window.ksu.exec(cmd);
+                const response = JSON.parse(responseStr);
+                
+                if (response.errno === 0) {
+                    return response.stdout;
+                } else {
+                    console.error("KSU Command Failed:", response.stderr);
+                    return "";
+                }
+            } else {
+                // Fallback for local PC debugging (e.g., node.js local server)
+                console.warn("KernelSU native interface not detected. Falling back to /exec.");
+                const res = await fetch('/exec', { method: 'POST', body: cmd });
+                return await res.text();
+            }
         } catch (e) {
-            console.error("KSU Exec error:", e);
+            console.error("KSU Exec exception:", e);
             return "";
+        }
+    }
+
+    // Native KernelSU Toast API
+    function showToast(message) {
+        if (typeof window.ksu !== 'undefined' && typeof window.ksu.toast === 'function') {
+            window.ksu.toast(message);
+        } else {
+            console.log("Toast:", message);
         }
     }
 
@@ -56,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Main Dashboard Data (KSU Read)
     // -----------------------------------------
     const loadMainData = async () => {
-        // Build a single, clean Bash payload to fetch all stats instantly
         const bashPayload = `
         DEVICE=$(getprop ro.product.model | tr -d '\r\n')
         CAPACITY=$(cat /sys/class/power_supply/battery/charge_full_design 2>/dev/null | tr -d '\r\n')
@@ -212,6 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         await execRoot(cmd);
+        
+        // Trigger native Android toast for user feedback
+        showToast("CPU Frequencies successfully saved!");
         
         btnSave.innerText = "Saved!";
         btnSave.style.color = "#4CAF50"; 

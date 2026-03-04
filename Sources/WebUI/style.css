@@ -10,7 +10,14 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
 
-body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; }
+body { 
+    background-color: var(--bg-color); 
+    color: var(--text-main); 
+    padding: 16px; 
+    /* Ensures compatibility with KernelSU's Edge-to-Edge mode */
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
 
 .screen { display: none; flex-direction: column; gap: 16px; }
 .screen.active { display: flex; animation: fadeIn 0.3s ease; }
