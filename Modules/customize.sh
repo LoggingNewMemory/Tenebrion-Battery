@@ -55,18 +55,18 @@ fi
 # 4. Handle Configuration File
 CONFIG_FILE="/data/Tenebrion/tenebrion.txt"
 
-# Copy base template if it doesn't exist (Fresh Install)
+# Copy base template and apply detected hardware paths ONLY on Fresh Install
 if [ ! -f "$CONFIG_FILE" ]; then
     ui_print "- Deploying base configuration..."
     cp -f $MODPATH/tenebrion.txt $CONFIG_FILE
+    
+    # Write the detected hardware paths to the new config
+    sed -i "s/^TENEBRION_COMMON_PATH=.*/TENEBRION_COMMON_PATH=$COMMON_PATH/" $CONFIG_FILE
+    sed -i "s/^TENEBRION_SECOND_PATH=.*/TENEBRION_SECOND_PATH=$SECOND_PATH/" $CONFIG_FILE
+    sed -i "s/^TENEBRION_COMPABILITY=.*/TENEBRION_COMPABILITY=$COMPAT_PATH/" $CONFIG_FILE
 else
-    ui_print "- Existing configuration found. Retaining user tweaks."
+    ui_print "- Existing configuration found. SKIPPING"
 fi
-
-# Always update hardware paths in case of ROM/Device change
-sed -i "s/^TENEBRION_COMMON_PATH=.*/TENEBRION_COMMON_PATH=$COMMON_PATH/" $CONFIG_FILE
-sed -i "s/^TENEBRION_SECOND_PATH=.*/TENEBRION_SECOND_PATH=$SECOND_PATH/" $CONFIG_FILE
-sed -i "s/^TENEBRION_COMPABILITY=.*/TENEBRION_COMPABILITY=$COMPAT_PATH/" $CONFIG_FILE
 
 ui_print " "
 sleep 0.5
