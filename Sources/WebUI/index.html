@@ -30,10 +30,18 @@
             </div>
 
             <div class="card list-card">
-                <div class="list-item">
-                    <span class="item-label">Service Status</span>
-                    <span id="service-status" class="value">Checking...</span>
+                <div class="list-item" style="flex-direction: column; align-items: flex-start; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span class="item-label">Service Status</span>
+                        <span id="service-status" class="value">Checking...</span>
+                    </div>
+                    
+                    <div id="endfield-warning" class="warning-box" style="display: none;">
+                        <p class="item-desc warning-text">Endfield Engine Detected. Please stop Endfield Engine then click the button below to restart.</p>
+                        <button id="btn-restart" class="primary-btn sm-btn">Restart Tenebrion</button>
+                    </div>
                 </div>
+
                 <div class="list-item">
                     <span class="item-label">Service Uptime</span>
                     <span id="service-uptime" class="value">--:--:--</span>
@@ -46,14 +54,20 @@
 
             <div class="card list-card">
                 <div class="list-item toggle-row">
-                    <span class="item-label">Tenebrion Half</span>
+                    <div class="toggle-text">
+                        <span class="item-label">Tenebrion Half</span>
+                        <span class="item-desc">On screen on use the half CPU frequency.</span>
+                    </div>
                     <label class="switch red-switch">
                         <input type="checkbox" id="toggle-half">
                         <span class="slider"></span>
                     </label>
                 </div>
                 <div class="list-item toggle-row">
-                    <span class="item-label">Tenebrion Forgive</span>
+                    <div class="toggle-text">
+                        <span class="item-label">Tenebrion Forgive</span>
+                        <span class="item-desc">On screen off use the half CPU frequency.</span>
+                    </div>
                     <label class="switch blue-switch">
                         <input type="checkbox" id="toggle-forgive">
                         <span class="slider"></span>

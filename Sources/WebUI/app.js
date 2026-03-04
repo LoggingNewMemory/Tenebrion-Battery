@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCustomize = document.getElementById('btn-customize');
     const btnBack = document.getElementById('btn-back');
     const btnSave = document.getElementById('btn-save');
+    const btnRestart = document.getElementById('btn-restart');
 
     const toggleHalf = document.getElementById('toggle-half');
     const toggleForgive = document.getElementById('toggle-forgive');
@@ -54,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let s = currentUptimeSec % 60;
             document.getElementById('service-uptime').innerText =
                 `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }, 1000); // Ticks every 1 real-life second
+        }, 1000); 
     }
 
     // === 3. NAVIGATION ===
@@ -72,7 +73,33 @@ document.addEventListener('DOMContentLoaded', () => {
         startPolling(); 
     });
 
-    // === 4. DATA FETCHING (MAIN DASHBOARD) ===
+    // === 4. RESTART DAEMON EVENT ===
+    btnRestart.addEventListener('click', async () => {
+        btnRestart.innerText = "Restarting...";
+        btnRestart.style.opacity = "0.5";
+        btnRestart.style.pointerEvents = "none";
+        
+        await execRoot(`
+            killall TenebrionDaemon_arm64 2>/dev/null
+            # Locate the module dir dynamically and run the startup script
+            MODDIR=$(find /data/adb/modules -maxdepth 2 -name "service.sh" | grep -i "tenebrion" | head -n 1)
+            if [ -n "$MODDIR" ]; then
+                sh "$MODDIR" &
+            else
+                # Fallback path
+                sh /data/adb/modules/Tenebrion/service.sh &
+            fi
+        `);
+        
+        setTimeout(() => {
+            btnRestart.innerText = "Restart Tenebrion";
+            btnRestart.style.opacity = "1";
+            btnRestart.style.pointerEvents = "auto";
+            loadMainData(); // Refresh state
+        }, 2000);
+    });
+
+    // === 5. DATA FETCHING (MAIN DASHBOARD) ===
     async function loadMainData() {
         const bashPayload = `
         DEVICE=$(getprop ro.product.vendor.model)
@@ -84,16 +111,22 @@ document.addEventListener('DOMContentLoaded', () => {
         CURRENT=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
         [ -z "$CURRENT" ] && CURRENT="0"
         
-        # Get raw seconds for our real-time Javascript clock
         UPTIME_SEC=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
         [ -z "$UPTIME_SEC" ] && UPTIME_SEC="0"
 
         if pgrep -f TenebrionDaemon >/dev/null 2>&1; then STATUS="Running"; else STATUS="Stopped"; fi
 
+        # Detect Endfield Engine / Project Raco
+        if pgrep -i -f "endfield" >/dev/null 2>&1 || pgrep -i -f "raco" >/dev/null 2>&1; then
+            ENDFIELD="1"
+        else
+            ENDFIELD="0"
+        fi
+
         HALF=$(grep "TENEBRION_HALF=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2)
         FORGIVE=$(grep "TENEBRION_FORGIVE=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2)
         
-        printf '{"device": "%s", "capacity": "%s", "status": "%s", "uptime_sec": "%s", "current_batt": "%s", "half": "%s", "forgive": "%s"}' "$DEVICE" "$CAPACITY" "$STATUS" "$UPTIME_SEC" "$CURRENT" "$HALF" "$FORGIVE"
+        printf '{"device": "%s", "capacity": "%s", "status": "%s", "uptime_sec": "%s", "current_batt": "%s", "half": "%s", "forgive": "%s", "endfield": "%s"}' "$DEVICE" "$CAPACITY" "$STATUS" "$UPTIME_SEC" "$CURRENT" "$HALF" "$FORGIVE" "$ENDFIELD"
         `;
 
         const responseText = await execRoot(bashPayload);
@@ -105,26 +138,34 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('device-model').innerText = data.device || "Unknown";
             document.getElementById('current-battery').innerText = (data.current_batt || "--") + "%";
             
-            // Sync Uptime with JS clock
             currentUptimeSec = parseInt(data.uptime_sec) || 0;
-            startLiveUptime(); // Start ticking immediately
+            startLiveUptime(); 
 
-            // Fix Battery Capacity Logic (Handles hardware dropping zeros)
             let cap = parseInt(data.capacity) || 5000000;
             if (cap > 100000) cap = Math.floor(cap / 1000);
             else if (cap > 10000) cap = Math.floor(cap / 10);
-            if (cap > 0 && cap < 1000) cap = cap * 10; // e.g. fixes 500 -> 5000
+            if (cap > 0 && cap < 1000) cap = cap * 10; 
             
             document.getElementById('battery-capacity').innerText = cap + " mAh";
             
-            // Status Check
+            // Status and Endfield Engine UI Logic
             const elStatus = document.getElementById('service-status');
+            const endfieldWarning = document.getElementById('endfield-warning');
+
             if (data.status === "Running") {
                 elStatus.innerText = "Running";
                 elStatus.style.color = "#4CAF50"; 
+                endfieldWarning.style.display = "none";
             } else {
-                elStatus.innerText = data.status || "Stopped";
-                elStatus.style.color = "var(--text-muted)";
+                if (data.endfield === "1") {
+                    elStatus.innerText = "Blocked";
+                    elStatus.style.color = "var(--red-accent)";
+                    endfieldWarning.style.display = "flex";
+                } else {
+                    elStatus.innerText = "Stopped";
+                    elStatus.style.color = "var(--text-muted)";
+                    endfieldWarning.style.display = "none";
+                }
             }
             
             if (document.activeElement !== toggleHalf && document.activeElement !== toggleForgive) {
@@ -136,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === 5. SAVING TOGGLES ===
+    // === 6. SAVING TOGGLES ===
     async function saveToggles() {
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
@@ -163,8 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleHalf.addEventListener('change', saveToggles);
     toggleForgive.addEventListener('change', saveToggles);
 
-    // === 6. DATA FETCHING (CPU CUSTOMIZATION) ===
-    // Completely rewritten to avoid JSON crashes on hardware level reads
+    // === 7. DATA FETCHING (CPU CUSTOMIZATION) ===
     async function loadCPUData() {
         const container = document.getElementById('cluster-container');
         container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Scanning CPU Clusters...</div>';
@@ -179,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
             SMID=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MID=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
             SMAX=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MAX=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
             
-            # Print pipe delimited string to avoid JSON breakage
             echo "\${IDX}|\${MIN}|\${MAX}|\${SMIN}|\${SMID}|\${SMAX}"
         done
         `;
@@ -254,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === 7. SAVING CPU DATA ===
+    // === 8. SAVING CPU DATA ===
     btnSave.addEventListener('click', async () => {
         btnSave.innerText = "Saving...";
         btnSave.style.opacity = "0.5";
@@ -290,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-    // === 8. LIVE POLLING ===
+    // === 9. LIVE POLLING ===
     function startPolling() {
         pollingInterval = setInterval(loadMainData, 5000); 
     }
