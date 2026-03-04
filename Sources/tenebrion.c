@@ -16,19 +16,13 @@ typedef struct {
 
 // Function to load config from tenebrion.txt once at startup
 void load_config(TenebrionConfig *config) {
-    // Set defaults to false
     config->use_common_path = false;
     config->use_second_path = false;
     config->use_compatibility = false;
 
     FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
-    if (!file) {
-        printf("[Tenebrion] Warning: Config file not found. Defaulting to Compatibility mode.\n");
-        config->use_compatibility = true;
-        return;
-    }
-
     char line[256];
+    
     while (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "TENEBRION_COMMON_PATH=1", 23) == 0) {
             config->use_common_path = true;
@@ -39,12 +33,6 @@ void load_config(TenebrionConfig *config) {
         }
     }
     fclose(file);
-
-    // Fallback if the user or installer messed up and set none
-    if (!config->use_common_path && !config->use_second_path && !config->use_compatibility) {
-        printf("[Tenebrion] Warning: No valid path flag set in config. Defaulting to Compatibility mode.\n");
-        config->use_compatibility = true;
-    }
 }
 
 // Function to detect Endfield Engine
@@ -67,7 +55,7 @@ int get_screen_state(TenebrionConfig *config) {
             if (strstr(buf, "On")) return 1;
             if (strstr(buf, "Off")) return 0;
         }
-        return -1; // Return immediately if this is the chosen path but it fails
+        return -1; 
     }
 
     // 2. Second Path
@@ -107,41 +95,34 @@ int main() {
 
     printf("[Tenebrion] Initializing daemon...\n");
 
-    // Load configuration once to determine the correct sysfs/cmd path
     load_config(&config);
     
     printf("[Tenebrion] Active Screen Path: Common=%d, Second=%d, Compat=%d\n", 
            config.use_common_path, config.use_second_path, config.use_compatibility);
 
     while (1) {
-        // Step 1: Detect Endfield Engine
         if (detect_endfield()) {
             printf("Tenebrion Blocked, Please Disable Endfield Engine\n");
             exit(1);
         }
 
-        // Step 2: Detect Screen State using ONLY the configured path
         current_state = get_screen_state(&config);
 
-        // Step 3: Check if state changed to prevent execution loops
         if (current_state != -1 && current_state != last_state) {
             
-            // Execute corresponding compiled binaries based on in-memory state
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
-                system("/data/Tenebrion/normal"); // Direct execution, no 'sh'
+                system("/data/Tenebrion/normal"); 
                 asm_write_file("/data/Tenebrion/tenebrion.txt", "TENEBRION_STATE=1\n", 18);
             } else if (current_state == 0) {
                 printf("[Tenebrion] Screen Off detected. Executing Battery Binary...\n");
-                system("/data/Tenebrion/battery"); // Direct execution, no 'sh'
+                system("/data/Tenebrion/battery"); 
                 asm_write_file("/data/Tenebrion/tenebrion.txt", "TENEBRION_STATE=0\n", 18);
             }
 
-            // Update state
             last_state = current_state;
         }
 
-        // Step 4: Sleep for 3 seconds to prevent overhead
         sleep(3);
     }
 
