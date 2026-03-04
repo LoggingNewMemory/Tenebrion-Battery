@@ -13,35 +13,6 @@ TENEBRION_FORGIVE=0/1
 
 #############################################
 
-TENEBRION_CUST_FREQ=0/1
-- If Enabled then ignore all Min,Mid,Max CPUFreq. It will use:
-
-TENEBRION_CUST_FREQ_[0-Max]_MIN=[Value]
-TENEBRION_CUST_FREQ_[0-Max]_MID=[Value]
-TENEBRION_CUST_FREQ_[0-Max]_MAX=[Value]
-
-This will poll using /sys/devices/system/cpu/cpufreq/policy*
-
-TECNO-LH8n:/sys/devices/system/cpu/cpufreq # ls
-policy0  policy6  schedhorizon
-
-Example:
-
-On policy0
-TENEBRION_CUST_FREQ_0_MIN=968000
-TENEBRION_CUST_FREQ_0_MID=1393000
-TENEBRION_CUST_FREQ_0_MAX=1916000
-
-On policy6
-TENEBRION_CUST_FREQ_6_MIN=898000
-TENEBRION_CUST_FREQ_6_MID=1418000
-TENEBRION_CUST_FREQ_6_MAX=2306000
-
-And so on... Depending on how many policy it have. I'm conflicted on where should I put the detection. Should I pre-defined it at tenebrion.txt
-Then fill it during installation then user can customize using WebUI, Or I write it on WebUI?
-
-#############################################
-
 TENEBRION_STATE=0 / 1
 To determine which state changed. (But most likely it won't be used as we will use daemon to handle it instead of write it on disk)
 

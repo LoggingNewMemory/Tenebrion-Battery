@@ -31,13 +31,7 @@ function execRoot(command) {
 // === 2. DOM LOAD & SETUP ===
 document.addEventListener('DOMContentLoaded', () => {
 
-    const mainScreen = document.getElementById('main-screen');
-    const cpuScreen = document.getElementById('cpu-screen');
-    const btnCustomize = document.getElementById('btn-customize');
-    const btnBack = document.getElementById('btn-back');
-    const btnSave = document.getElementById('btn-save');
     const btnRestart = document.getElementById('btn-restart');
-
     const toggleHalf = document.getElementById('toggle-half');
     const toggleForgive = document.getElementById('toggle-forgive');
 
@@ -58,22 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000); 
     }
 
-    // === 3. NAVIGATION ===
-    btnCustomize.addEventListener('click', () => {
-        mainScreen.classList.remove('active');
-        cpuScreen.classList.add('active');
-        clearInterval(pollingInterval); 
-        loadCPUData();
-    });
-
-    btnBack.addEventListener('click', () => {
-        cpuScreen.classList.remove('active');
-        mainScreen.classList.add('active');
-        loadMainData();
-        startPolling(); 
-    });
-
-    // === 4. RESTART DAEMON EVENT ===
+    // === 3. RESTART DAEMON EVENT ===
     btnRestart.addEventListener('click', async () => {
         btnRestart.innerText = "Restarting...";
         btnRestart.style.opacity = "0.5";
@@ -97,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-    // === 5. DATA FETCHING (MAIN DASHBOARD) ===
+    // === 4. DATA FETCHING (MAIN DASHBOARD) ===
     async function loadMainData() {
         const bashPayload = `
         DEVICE=$(getprop ro.product.vendor.model)
@@ -173,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === 6. SAVING TOGGLES ===
+    // === 5. SAVING TOGGLES ===
     async function saveToggles() {
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
@@ -203,182 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleHalf.addEventListener('change', saveToggles);
     toggleForgive.addEventListener('change', saveToggles);
 
-    // === 7. DATA FETCHING (CPU CUSTOMIZATION WITH DROPDOWNS) ===
-    async function loadCPUData() {
-        const container = document.getElementById('cluster-container');
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Scanning CPU Clusters...</div>';
-
-        // Added AVAIL extraction to grab safe kernel frequencies
-        const bashPayload = `
-        for policy in /sys/devices/system/cpu/cpufreq/policy*; do
-            [ ! -d "$policy" ] && continue
-            IDX=$(basename $policy | sed 's/policy//')
-            MIN=$(cat $policy/cpuinfo_min_freq 2>/dev/null || echo "0")
-            MAX=$(cat $policy/cpuinfo_max_freq 2>/dev/null || echo "0")
-            AVAIL=$(cat $policy/scaling_available_frequencies 2>/dev/null || echo "")
-            SMIN=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MIN=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
-            SMID=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MID=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
-            SMAX=$(grep "TENEBRION_CUST_FREQ_\${IDX}_MAX=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 || echo "")
-            
-            echo "\${IDX}|\${MIN}|\${MAX}|\${SMIN}|\${SMID}|\${SMAX}|\${AVAIL}"
-        done
-        `;
-
-        const responseText = await execRoot(bashPayload);
-
-        try {
-            container.innerHTML = '';
-            const lines = responseText.trim().split('\n');
-            
-            if (!responseText.trim() || lines.length === 0) {
-                container.innerHTML = '<div style="text-align:center; padding: 20px;">No CPU Policies Found</div>';
-                return;
-            }
-
-            lines.forEach(line => {
-                if (!line.includes('|')) return;
-                const parts = line.split('|');
-                const idxStr = parts[0];
-                const minStr = parts[1];
-                const maxStr = parts[2];
-                const sMinStr = parts[3];
-                const sMidStr = parts[4];
-                const sMaxStr = parts[5];
-                const availStr = parts[6] || "";
-                
-                let idx = parseInt(idxStr);
-                let name = "Cluster " + idx;
-                if (idx === 0) name = "Normal Cluster";
-                if (idx === 4 || idx === 6) name = "Big Cluster";
-                if (idx === 7) name = "Prime Cluster";
-
-                let min = parseInt(minStr) || 0;
-                let max = parseInt(maxStr) || 0;
-
-                // Parse available freqs or fallback to min/max range
-                let availFreqs = [];
-                if (availStr.trim()) {
-                    availFreqs = availStr.trim().split(/\s+/).map(Number);
-                } else {
-                    availFreqs = [min, Math.floor((min + max) / 2), max];
-                }
-                
-                // Ensure array is unique & sorted ascending
-                availFreqs = [...new Set(availFreqs)].sort((a, b) => a - b);
-
-                // Helper to snap arbitrary numbers to the closest valid frequency
-                function getClosestFreq(target) {
-                    return availFreqs.reduce((prev, curr) => 
-                        Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
-                    );
-                }
-
-                let actualMin = sMinStr ? parseInt(sMinStr) : min;
-                let actualMax = sMaxStr ? parseInt(sMaxStr) : max;
-                let actualMid = sMidStr ? parseInt(sMidStr) : Math.floor((min + max) / 2);
-
-                // Snap values to available list (prevents invalid old saves from breaking UI)
-                actualMin = getClosestFreq(actualMin);
-                actualMid = getClosestFreq(actualMid);
-                actualMax = getClosestFreq(actualMax);
-
-                let minMhz = Math.floor(actualMin / 1000);
-                let midMhz = Math.floor(actualMid / 1000);
-                let maxMhz = Math.floor(actualMax / 1000);
-
-                // Helper to build dropdown options
-                function buildOptions(targetMhz) {
-                    return availFreqs.map(f => {
-                        let mhz = Math.floor(f / 1000);
-                        return `<option value="${mhz}" ${mhz === targetMhz ? 'selected' : ''}>${mhz}</option>`;
-                    }).join('');
-                }
-
-                container.innerHTML += `
-                    <div class="cluster-title">- ${name}</div>
-                    <div class="card list-card">
-                        <div class="list-item">
-                            <span class="item-label">Min Freq</span>
-                            <div class="input-wrapper">
-                                <select class="freq-select" data-policy="${idx}" data-type="min">
-                                    ${buildOptions(minMhz)}
-                                </select>
-                                <span>Mhz</span>
-                            </div>
-                        </div>
-                        <div class="list-item">
-                            <span class="item-label">Mid Freq</span>
-                            <div class="input-wrapper">
-                                <select class="freq-select" data-policy="${idx}" data-type="mid">
-                                    ${buildOptions(midMhz)}
-                                </select>
-                                <span>Mhz</span>
-                            </div>
-                        </div>
-                        <div class="list-item">
-                            <span class="item-label">Max Freq</span>
-                            <div class="input-wrapper">
-                                <select class="freq-select" data-policy="${idx}" data-type="max">
-                                    ${buildOptions(maxMhz)}
-                                </select>
-                                <span>Mhz</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            if (container.innerHTML === '') {
-                container.innerHTML = '<div style="text-align:center; padding: 20px;">No CPU Policies Found</div>';
-            }
-        } catch (err) {
-            console.error("Failed to parse CPU data:", err);
-            container.innerHTML = '<div style="text-align:center; padding: 20px; color: #D32F2F;">Failed to read hardware sysfs.</div>';
-        }
-    }
-
-    // === 8. SAVING CPU DATA ===
-    btnSave.addEventListener('click', async () => {
-        btnSave.innerText = "Saving...";
-        btnSave.style.opacity = "0.5";
-        btnSave.style.pointerEvents = "none";
-        
-        let cmd = `
-        FILE="/data/Tenebrion/tenebrion.txt"
-        
-        [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
-
-        if grep -q "^TENEBRION_CUST_FREQ=" $FILE; then
-            sed -i "s/^TENEBRION_CUST_FREQ=.*/TENEBRION_CUST_FREQ=1/" $FILE
-        else
-            echo "TENEBRION_CUST_FREQ=1" >> $FILE
-        fi
-
-        sed -i '/^TENEBRION_CUST_FREQ_[0-9]*_/d' $FILE
-        `;
-        
-        // Target the new select tags
-        const inputs = document.querySelectorAll('.freq-select');
-        inputs.forEach(input => {
-            const khz = parseInt(input.value) * 1000; 
-            const type = input.dataset.type.toUpperCase();
-            cmd += `echo "TENEBRION_CUST_FREQ_${input.dataset.policy}_${type}=${khz}" >> /data/Tenebrion/tenebrion.txt\n`;
-        });
-
-        await execRoot(cmd);
-        
-        btnSave.innerText = "Saved!";
-        btnSave.style.color = "#4CAF50"; 
-        
-        setTimeout(() => {
-            btnSave.innerText = "Save";
-            btnSave.style.color = "var(--blue-accent)";
-            btnSave.style.opacity = "1";
-            btnSave.style.pointerEvents = "auto";
-        }, 2000);
-    });
-
-    // === 9. LIVE POLLING ===
+    // === 6. LIVE POLLING ===
     function startPolling() {
         pollingInterval = setInterval(loadMainData, 5000); 
     }
