@@ -67,13 +67,13 @@
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-27" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="QbItls2lpJ5c8HYFAgJg-44">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="QbItls2lpJ5c8HYFAgJg-33" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Normal Script&lt;div&gt;(Screen On)&lt;/div&gt;" vertex="1">
+        <mxCell id="QbItls2lpJ5c8HYFAgJg-33" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Normal Script&lt;div&gt;(Screen On) + Logging&lt;/div&gt;" vertex="1">
           <mxGeometry height="40" width="177" x="126.5" y="930" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-28" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-34" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="QbItls2lpJ5c8HYFAgJg-44">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="QbItls2lpJ5c8HYFAgJg-34" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Battery Script&lt;div&gt;(Screen Off)&lt;/div&gt;" vertex="1">
+        <mxCell id="QbItls2lpJ5c8HYFAgJg-34" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Battery Script&lt;div&gt;(Screen Off) + Logging&lt;/div&gt;" vertex="1">
           <mxGeometry height="40" width="177" x="316.5" y="930" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-30" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-44" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="QbItls2lpJ5c8HYFAgJg-4">

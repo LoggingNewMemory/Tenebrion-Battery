@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error("JSON Parse Error:", err);
-            elStatus.innerText = "Backend Error";
+            elStatus.innerText = "x`";
             elStatus.style.color = "var(--red-accent)";
         }
     };

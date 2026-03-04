@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.5.2 Chrome/142.0.7444.265 Electron/39.6.1 Safari/537.36" version="29.5.2">
   <diagram name="Page-1" id="dMdwd0-dtQGhtu6LF_7x">
-    <mxGraphModel dx="951" dy="651" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="983" dy="673" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -67,7 +67,7 @@
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-27" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="QbItls2lpJ5c8HYFAgJg-44">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="QbItls2lpJ5c8HYFAgJg-33" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Normal Script&lt;div&gt;(Screen On)&lt;/div&gt;" vertex="1">
+        <mxCell id="QbItls2lpJ5c8HYFAgJg-33" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Execute Normal Script&lt;div&gt;(Screen On) + Logging&lt;/div&gt;" vertex="1">
           <mxGeometry height="40" width="177" x="126.5" y="930" as="geometry" />
         </mxCell>
         <mxCell id="nEbZi96V4aJNZWkyk8Nh-28" edge="1" parent="1" source="QbItls2lpJ5c8HYFAgJg-34" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="QbItls2lpJ5c8HYFAgJg-44">
@@ -109,7 +109,7 @@
             <mxPoint x="440" y="650" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="b3YdXMALDGP9B1bVFv12-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Pretty Much Language Handling List&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Main core = C&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;Detect Screen State = Assembly&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;Write to sysfs = Assembly&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;(&lt;b&gt;Probably&lt;/b&gt;, If for monitoring the file using Assembly is bloated will use inotify API, but I doubt inotify will be better than my Assembly)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;TODO: Patch the build.sh since project structure is:&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Modules/&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;- Binaries/&lt;br&gt;&lt;/div&gt;&lt;div&gt;Sources/&lt;/div&gt;&lt;div&gt;build.sh&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Running build.sh will put the compiled binary to Modules/Binaries&lt;/div&gt;" vertex="1">
+        <mxCell id="b3YdXMALDGP9B1bVFv12-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Pretty Much Language Handling List&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Main core = C&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;Detect Screen State = Assembly&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;Write to sysfs = Assembly&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;&lt;i&gt;USING SHELL IS PROHIBITED&lt;/i&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;(&lt;b&gt;Probably&lt;/b&gt;, If for monitoring the file using Assembly is bloated will use inotify API, but I doubt inotify will be better than my Assembly)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;TODO: Patch the build.sh since project structure is:&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Modules/&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;- Binaries/&lt;br&gt;&lt;/div&gt;&lt;div&gt;Sources/&lt;/div&gt;&lt;div&gt;build.sh&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Running build.sh will put the compiled binary to Modules/Binaries&lt;/div&gt;" vertex="1">
           <mxGeometry height="315" width="300" x="550" y="25" as="geometry" />
         </mxCell>
       </root>

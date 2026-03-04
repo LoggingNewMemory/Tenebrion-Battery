@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <time.h>
 
 // External ARM64 Assembly functions
 extern int asm_read_file(const char* path, char* buffer, int max_len);
@@ -15,6 +16,19 @@ typedef struct {
     bool use_compatibility;
 } TenebrionConfig;
 
+// Function to write to the execution log
+void write_log(const char *message) {
+    FILE *logfile = fopen("/data/Tenebrion/tenebrion.log", "a");
+    if (logfile) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        fprintf(logfile, "[%04d-%02d-%02d %02d:%02d:%02d] %s\n",
+                t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+                t->tm_hour, t->tm_min, t->tm_sec, message);
+        fclose(logfile);
+    }
+}
+
 // Function to load config from tenebrion.txt once at startup
 void load_config(TenebrionConfig *config) {
     config->use_common_path = false;
@@ -22,8 +36,9 @@ void load_config(TenebrionConfig *config) {
     config->use_compatibility = false;
 
     FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
+    if (!file) return;
+
     char line[256];
-    
     while (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "TENEBRION_COMMON_PATH=1", 23) == 0) {
             config->use_common_path = true;
@@ -95,6 +110,7 @@ int main() {
     TenebrionConfig config;
 
     printf("[Tenebrion] Initializing daemon...\n");
+    write_log("Daemon initialized and started.");
 
     load_config(&config);
     
@@ -104,6 +120,7 @@ int main() {
     while (1) {
         if (detect_endfield()) {
             printf("Tenebrion Blocked, Please Disable Endfield Engine\n");
+            write_log("Daemon blocked due to Endfield Engine detection. Exiting.");
             exit(1);
         }
 
@@ -113,10 +130,12 @@ int main() {
             
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
+                write_log("State Change: Screen ON -> Executing Normal Binary");
                 system("/data/adb/modules/TenebrionBattery/Binaries/normal"); 
                 asm_write_file("/dev/tenebrion_state", "1\n", 2); 
             } else if (current_state == 0) {
                 printf("[Tenebrion] Screen Off detected. Executing Battery Binary...\n");
+                write_log("State Change: Screen OFF -> Executing Battery Binary");
                 system("/data/adb/modules/TenebrionBattery/Binaries/battery"); 
                 asm_write_file("/dev/tenebrion_state", "0\n", 2); 
             }
