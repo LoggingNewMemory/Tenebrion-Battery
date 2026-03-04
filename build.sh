@@ -245,10 +245,8 @@ build_modules() {
     cd ../../
 
     echo "[3/3] Deploying Backend CGI API & Assets..."
-    cp "$SRC_DIR/WebUI/backend.sh" "$MODULES_DIR/webroot/cgi-bin/api"
-    chmod 755 "$MODULES_DIR/webroot/cgi-bin/api"
-    cp "$SRC_DIR/WebUI/Banner.png" "$MODULES_DIR/webroot/" 2>/dev/null
-
+    cp "$SRC_DIR/WebUI/Banner.png" "$MODULES_DIR/" 2>/dev/null
+    
     # ------------------------------------------
     # B. PACKAGING MODULE
     # ------------------------------------------

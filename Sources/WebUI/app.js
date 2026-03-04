@@ -1,76 +1,162 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Navigation
-    document.getElementById('btn-customize').addEventListener('click', () => {
-        document.getElementById('main-screen').classList.remove('active');
-        document.getElementById('cpu-screen').classList.add('active');
+    // -----------------------------------------
+    // 1. KernelSU Root Execution Bridge
+    // -----------------------------------------
+    async function execRoot(cmd) {
+        try {
+            const res = await fetch('/exec', { 
+                method: 'POST', 
+                body: cmd 
+            });
+            return await res.text();
+        } catch (e) {
+            console.error("KSU Exec error:", e);
+            return "";
+        }
+    }
+
+    // -----------------------------------------
+    // 2. DOM Elements
+    // -----------------------------------------
+    const mainScreen = document.getElementById('main-screen');
+    const cpuScreen = document.getElementById('cpu-screen');
+    const btnCustomize = document.getElementById('btn-customize');
+    const btnBack = document.getElementById('btn-back');
+    const btnSave = document.getElementById('btn-save');
+
+    const elDevice = document.getElementById('device-model');
+    const elCapacity = document.getElementById('battery-capacity');
+    const elStatus = document.getElementById('service-status');
+    const elUptime = document.getElementById('service-uptime');
+    const elCurrent = document.getElementById('current-battery');
+    
+    const toggleHalf = document.getElementById('toggle-half');
+    const toggleForgive = document.getElementById('toggle-forgive');
+
+    let pollingInterval;
+
+    // -----------------------------------------
+    // 3. Navigation Logic
+    // -----------------------------------------
+    btnCustomize.addEventListener('click', () => {
+        mainScreen.classList.remove('active');
+        cpuScreen.classList.add('active');
+        clearInterval(pollingInterval); 
         loadCPUData();
     });
 
-    document.getElementById('btn-back').addEventListener('click', () => {
-        document.getElementById('cpu-screen').classList.remove('active');
-        document.getElementById('main-screen').classList.add('active');
+    btnBack.addEventListener('click', () => {
+        cpuScreen.classList.remove('active');
+        mainScreen.classList.add('active');
+        loadMainData();
+        startPolling(); 
     });
 
-    // Load Main Data
-    fetch('/cgi-bin/api?action=status')
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('device-model').innerText = data.device;
-            document.getElementById('battery-capacity').innerText = data.capacity + " mAh";
-            document.getElementById('service-status').innerText = data.status;
-            document.getElementById('service-uptime').innerText = data.uptime;
-            document.getElementById('current-battery').innerText = data.current_batt + "%";
+    // -----------------------------------------
+    // 4. Main Dashboard Data (KSU Read)
+    // -----------------------------------------
+    const loadMainData = async () => {
+        // Build a single, clean Bash payload to fetch all stats instantly
+        const bashPayload = `
+        DEVICE=$(getprop ro.product.model | tr -d '\r\n')
+        CAPACITY=$(cat /sys/class/power_supply/battery/charge_full_design 2>/dev/null | tr -d '\r\n')
+        [ -z "$CAPACITY" ] && CAPACITY="5000000"
+        CURRENT=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null | tr -d '\r\n')
+        UPTIME=$(awk '{print int($1/3600)":"int(($1%3600)/60)":"int($1%60)}' /proc/uptime 2>/dev/null | tr -d '\r\n')
+        pgrep -f TenebrionDaemon >/dev/null 2>&1 && STATUS="Running" || STATUS="Stopped"
+        HALF=$(grep "TENEBRION_HALF=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 | tr -d '\r\n')
+        FORGIVE=$(grep "TENEBRION_FORGIVE=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2 | tr -d '\r\n')
+        
+        printf '{"device": "%s", "capacity": "%s", "status": "%s", "uptime": "%s", "current_batt": "%s", "half": "%s", "forgive": "%s"}' "$DEVICE" "$((CAPACITY/1000))" "$STATUS" "$UPTIME" "$CURRENT" "$HALF" "$FORGIVE"
+        `;
+
+        const responseText = await execRoot(bashPayload);
+        
+        try {
+            const data = JSON.parse(responseText);
+            elDevice.innerText = data.device || "Unknown Device";
+            elCapacity.innerText = (data.capacity || "--") + " mAh";
+            elUptime.innerText = data.uptime || "--:--:--";
+            elCurrent.innerText = (data.current_batt || "--") + "%";
             
-            document.getElementById('toggle-half').checked = data.half == 1;
-            document.getElementById('toggle-forgive').checked = data.forgive == 1;
-        });
-
-    // Toggle Saves
-    const saveToggles = () => {
-        const half = document.getElementById('toggle-half').checked ? 1 : 0;
-        const forgive = document.getElementById('toggle-forgive').checked ? 1 : 0;
-        fetch(`/cgi-bin/api?action=save_toggles&half=${half}&forgive=${forgive}`);
+            if (data.status === "Running") {
+                elStatus.innerText = "Running";
+                elStatus.style.color = "#4CAF50"; 
+            } else {
+                elStatus.innerText = data.status || "Stopped";
+                elStatus.style.color = "var(--red-accent)";
+            }
+            
+            if (document.activeElement !== toggleHalf && document.activeElement !== toggleForgive) {
+                toggleHalf.checked = data.half === "1";
+                toggleForgive.checked = data.forgive === "1";
+            }
+        } catch (err) {
+            console.error("JSON Parse Error:", err);
+            elStatus.innerText = "Backend Error";
+            elStatus.style.color = "var(--red-accent)";
+        }
     };
-    document.getElementById('toggle-half').addEventListener('change', saveToggles);
-    document.getElementById('toggle-forgive').addEventListener('change', saveToggles);
 
-    // Save Custom CPU Frequencies
-    document.getElementById('btn-save').addEventListener('click', () => {
-        const btn = document.getElementById('btn-save');
-        btn.innerText = "Saving...";
+    // -----------------------------------------
+    // 5. Dashboard Toggles (KSU Write)
+    // -----------------------------------------
+    const saveToggles = async () => {
+        const half = toggleHalf.checked ? 1 : 0;
+        const forgive = toggleForgive.checked ? 1 : 0;
         
-        const inputs = document.querySelectorAll('.freq-input');
-        let params = new URLSearchParams();
-        params.append('action', 'save_cpufreq');
-        
-        inputs.forEach(input => {
-            // Convert MHz back to KHz for the C daemon
-            const khz = parseInt(input.value) * 1000;
-            params.append(`p${input.dataset.policy}_${input.dataset.type}`, khz);
-        });
+        const cmd = `
+        sed -i "s/^TENEBRION_HALF=.*/TENEBRION_HALF=${half}/" /data/Tenebrion/tenebrion.txt
+        sed -i "s/^TENEBRION_FORGIVE=.*/TENEBRION_FORGIVE=${forgive}/" /data/Tenebrion/tenebrion.txt
+        `;
+        await execRoot(cmd);
+    };
 
-        fetch(`/cgi-bin/api?${params.toString()}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    btn.innerText = "Saved!";
-                    setTimeout(() => btn.innerText = "Save", 2000);
-                }
-            })
-            .catch(() => {
-                btn.innerText = "Error";
-                setTimeout(() => btn.innerText = "Save", 2000);
-            });
-    });
-});
+    toggleHalf.addEventListener('change', saveToggles);
+    toggleForgive.addEventListener('change', saveToggles);
 
-function loadCPUData() {
-    fetch('/cgi-bin/api?action=cpufreq')
-        .then(res => res.json())
-        .then(clusters => {
-            const container = document.getElementById('cluster-container');
+    // -----------------------------------------
+    // 6. CPU Customization Data (KSU Read)
+    // -----------------------------------------
+    const loadCPUData = async () => {
+        const container = document.getElementById('cluster-container');
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Scanning Hardware Clusters...</div>';
+
+        const bashPayload = `
+        printf "["
+        FIRST=true
+        for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ ! -d "$policy" ] && continue
+            [ "$FIRST" = true ] && FIRST=false || printf ","
+            
+            IDX=$(basename $policy | sed 's/policy//')
+            NAME="Cluster $IDX"
+            [ "$IDX" = "0" ] && NAME="Normal Cluster"
+            [ "$IDX" = "4" ] || [ "$IDX" = "6" ] && NAME="Big Cluster"
+            [ "$IDX" = "7" ] && NAME="Prime Cluster"
+
+            MIN=$(cat $policy/cpuinfo_min_freq 2>/dev/null | tr -d '\r\n')
+            MAX=$(cat $policy/cpuinfo_max_freq 2>/dev/null | tr -d '\r\n')
+            [ -z "$MIN" ] && MIN=0
+            [ -z "$MAX" ] && MAX=0
+            MID=$(( (MIN + MAX) / 2 ))
+            
+            printf '{"name": "%s", "policy_idx": "%s", "min_mhz": "%s", "mid_mhz": "%s", "max_mhz": "%s"}' "$NAME" "$IDX" "$((MIN/1000))" "$((MID/1000))" "$((MAX/1000))"
+        done
+        printf "]"
+        `;
+
+        const responseText = await execRoot(bashPayload);
+
+        try {
+            const clusters = JSON.parse(responseText);
             container.innerHTML = '';
             
+            if (clusters.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">No CPU Policies Found</div>';
+                return;
+            }
+
             clusters.forEach(cluster => {
                 const html = `
                     <div class="cluster-title">- ${cluster.name}</div>
@@ -100,5 +186,51 @@ function loadCPUData() {
                 `;
                 container.innerHTML += html;
             });
+        } catch (err) {
+            console.error("Failed to load CPU data:", err);
+            container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--red-accent);">Error loading CPU data. Check KSU backend.</div>';
+        }
+    };
+
+    // -----------------------------------------
+    // 7. CPU Customization Data (KSU Write)
+    // -----------------------------------------
+    btnSave.addEventListener('click', async () => {
+        btnSave.innerText = "Saving...";
+        btnSave.style.opacity = "0.5";
+        btnSave.style.pointerEvents = "none";
+        
+        let cmd = `
+        sed -i "s/^TENEBRION_CUST_FREQ=.*/TENEBRION_CUST_FREQ=1/" /data/Tenebrion/tenebrion.txt
+        sed -i '/^TENEBRION_CUST_FREQ_[0-9]*_/d' /data/Tenebrion/tenebrion.txt\n`;
+        
+        const inputs = document.querySelectorAll('.freq-input');
+        inputs.forEach(input => {
+            const khz = parseInt(input.value) * 1000;
+            const type = input.dataset.type.toUpperCase();
+            cmd += `echo "TENEBRION_CUST_FREQ_${input.dataset.policy}_${type}=${khz}" >> /data/Tenebrion/tenebrion.txt\n`;
         });
-}
+
+        await execRoot(cmd);
+        
+        btnSave.innerText = "Saved!";
+        btnSave.style.color = "#4CAF50"; 
+        
+        setTimeout(() => {
+            btnSave.innerText = "Save";
+            btnSave.style.color = "var(--blue-accent)";
+            btnSave.style.opacity = "1";
+            btnSave.style.pointerEvents = "auto";
+        }, 2000);
+    });
+
+    // -----------------------------------------
+    // 8. Initialization & Live Polling
+    // -----------------------------------------
+    const startPolling = () => {
+        pollingInterval = setInterval(loadMainData, 5000); // 5 seconds
+    };
+
+    loadMainData();
+    startPolling();
+});
