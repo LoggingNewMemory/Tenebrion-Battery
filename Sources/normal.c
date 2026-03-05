@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     __system_property_set("debug.sf.enable_adpf_cpu_hint", "true");
     __system_property_set("debug.hwui.target_cpu_time_percent", "60");
 
-    // 2. CPU Governor setup
+    // 2. CPU Frequency setup
     DIR *d = opendir("/sys/devices/system/cpu/cpufreq");
     if (!d) {
         free_state_config(&cfg);
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     }
 
     struct dirent *dir;
-    char path[256], gov_path[256], min_path[256], max_path[256];
+    char path[256], min_path[256], max_path[256];
 
     while ((dir = readdir(d)) != NULL) {
         if (strncmp(dir->d_name, "policy", 6) != 0) continue;
@@ -49,9 +49,6 @@ int main(int argc, char *argv[]) {
         snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpufreq/%s", dir->d_name);
         
         reset_cpu_limits(path);
-
-        snprintf(gov_path, sizeof(gov_path), "%s/scaling_governor", path);
-        sysfs_write(gov_path, "schedutil");
 
         snprintf(min_path, sizeof(min_path), "%s/scaling_min_freq", path);
         snprintf(max_path, sizeof(max_path), "%s/scaling_max_freq", path);
@@ -63,7 +60,7 @@ int main(int argc, char *argv[]) {
         sysfs_write(min_path, target_min);
 
         get_cached_hw_freq(&cfg, policy_idx, "MAX", target_max);
-        sysfs_write(max_path, target_max);
+        sysfs_write(max_path, target_max); // Release back to HW max
     }
     
     closedir(d);
