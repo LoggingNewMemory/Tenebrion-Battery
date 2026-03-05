@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <dirent.h>
 
 // External ARM64 Assembly functions
 extern int asm_read_file(const char* path, char* buffer, int max_len);
@@ -66,9 +69,48 @@ time_t get_file_mtime(const char *path) {
     return statbuf.st_mtime;
 }
 
+// Replaced system("pgrep...") with pure C procfs parsing
 bool detect_endfield() {
-    if (system("pgrep -x Endfield > /dev/null 2>&1") == 0) return true;
+    DIR *dir = opendir("/proc");
+    if (!dir) return false;
+    struct dirent *ent;
+    char path[256];
+    char comm[256];
+
+    while ((ent = readdir(dir)) != NULL) {
+        // Check if directory name is a PID (numeric)
+        if (ent->d_name[0] >= '1' && ent->d_name[0] <= '9') {
+            snprintf(path, sizeof(path), "/proc/%s/comm", ent->d_name);
+            FILE *f = fopen(path, "r");
+            if (f) {
+                if (fgets(comm, sizeof(comm), f) != NULL) {
+                    comm[strcspn(comm, "\n")] = 0; // strip newline
+                    if (strcmp(comm, "Endfield") == 0) {
+                        fclose(f);
+                        closedir(dir);
+                        return true;
+                    }
+                }
+                fclose(f);
+            }
+        }
+    }
+    closedir(dir);
     return false;
+}
+
+// Replaced system(cmd) for lower overhead execution
+void execute_binary(const char* path) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        char *argv[] = {(char *)path, NULL};
+        execv(path, argv);
+        exit(1); // Exit if exec fails
+    } else if (pid > 0) {
+        // Parent process
+        waitpid(pid, NULL, 0); // Wait for the binary to finish
+    }
 }
 
 int get_screen_state(TenebrionConfig *config) {
@@ -97,15 +139,27 @@ int get_screen_state(TenebrionConfig *config) {
     }
 
     if (config->use_compatibility) {
-        FILE *fp = popen("cmd deviceidle get screen", "r");
-        if (fp) {
-            if (fgets(buf, sizeof(buf), fp) != NULL) {
-                pclose(fp);
-                if (strstr(buf, "true")) return 1;
-                if (strstr(buf, "false")) return 0;
-            } else {
-                pclose(fp);
-            }
+        // Replaced popen() with direct pipe/execv to avoid sh
+        int link[2];
+        if (pipe(link) == -1) return -1;
+        
+        pid_t pid = fork();
+        if (pid == 0) {
+            dup2(link[1], STDOUT_FILENO);
+            close(link[0]);
+            close(link[1]);
+            char *argv[] = {"/system/bin/cmd", "deviceidle", "get", "screen", NULL};
+            execv(argv[0], argv);
+            exit(1);
+        } else if (pid > 0) {
+            close(link[1]);
+            memset(buf, 0, sizeof(buf));
+            read(link[0], buf, sizeof(buf) - 1);
+            close(link[0]);
+            waitpid(pid, NULL, 0);
+            
+            if (strstr(buf, "true")) return 1;
+            if (strstr(buf, "false")) return 0;
         }
         return -1;
     }
@@ -151,18 +205,15 @@ int main() {
         current_state = get_screen_state(&config);
 
         if (current_state != -1 && current_state != last_state) {
-            char cmd[256];
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
                 write_log("State Change: Screen ON -> Executing Normal Binary");
-                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/normal");
-                system(cmd); 
+                execute_binary("/data/adb/modules/TenebrionBattery/Binaries/normal"); 
                 asm_write_file("/dev/tenebrion_state", "1\n", 2); 
             } else if (current_state == 0) {
                 printf("[Tenebrion] Screen Off detected. Executing Battery Binary...\n");
                 write_log("State Change: Screen OFF -> Executing Battery Binary");
-                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/battery");
-                system(cmd); 
+                execute_binary("/data/adb/modules/TenebrionBattery/Binaries/battery"); 
                 asm_write_file("/dev/tenebrion_state", "0\n", 2); 
             }
 
