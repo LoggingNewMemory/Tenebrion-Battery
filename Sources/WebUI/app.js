@@ -146,18 +146,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === 5. SAVING TOGGLES & RESTARTING DAEMON ===
+    // === 5. SAVING TOGGLES ===
     async function saveToggles() {
-        // Disable toggles briefly to prevent spamming the restart command
+        // Disable toggles briefly 
         toggleHalf.disabled = true;
         toggleForgive.disabled = true;
 
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
         
+        // The daemon's mtime check will automatically detect these edits
         const cmd = `
         FILE="/data/Tenebrion/tenebrion.txt"
-        LOG="/data/Tenebrion/tenebrion.log"
         mkdir -p /data/Tenebrion
         touch $FILE
         
@@ -174,18 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else
             echo "TENEBRION_FORGIVE=${forgive}" >> $FILE
         fi
-
-        # 1. Log the update intention
-        NOW=$(date +'%Y-%m-%d %H:%M:%S')
-        echo "[$NOW] Configuration Has Been Updated, Restarting Tenebrion Daemon..." >> $LOG
-
-        # 2. Restart the Daemon directly from WebUI
-        killall TenebrionDaemon_arm64 2>/dev/null
-        /data/adb/modules/TenebrionBattery/Binaries/TenebrionDaemon_arm64 &
-
-        # 3. Log the success
-        NOW=$(date +'%Y-%m-%d %H:%M:%S')
-        echo "[$NOW] Restarted Successfully with new configuration" >> $LOG
         `;
         
         await execRoot(cmd);
