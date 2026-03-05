@@ -106,14 +106,12 @@ body {
     color: var(--text-main); 
     font-size: 18px; 
     font-weight: bold; 
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
 }
 
 .title { 
-    font-size: 38px; 
+    font-size: 20px; 
     font-weight: bold; 
     letter-spacing: 0.5px; 
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.9);
     line-height: 1.1;
 }
 
@@ -121,13 +119,11 @@ body {
     font-size: 16px; 
     font-weight: bold; 
     opacity: 0.95; 
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
 }
 
 .tagline { 
     font-size: 16px; 
     font-weight: bold; 
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
 }
 
 /* =========================================
