@@ -23,12 +23,10 @@ typedef struct {
     HwFreqNode *hw_freqs; // Dynamically handles any number of CPU clusters
 } TenebrionStateConfig;
 
-// Sysfs writes often require a newline '\n' to be parsed and committed by the kernel properly.
 void sysfs_write(const char* path, const char* val) {
     if (val != NULL && val[0] != '\0') {
-        char buf[64];
-        int len = snprintf(buf, sizeof(buf), "%s\n", val);
-        asm_write_file(path, buf, len);
+        int len = strlen(val);
+        asm_write_file(path, val, len);
     }
 }
 
