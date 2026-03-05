@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000); 
     }
 
-    // === 3. RESTART DAEMON EVENT ===
     btnRestart.addEventListener('click', async () => {
         btnRestart.innerText = "Restarting...";
         btnRestart.style.opacity = "0.5";
@@ -60,12 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         await execRoot(`
             killall TenebrionDaemon_arm64 2>/dev/null
-            MODDIR=$(find /data/adb/modules -maxdepth 2 -name "service.sh" | grep -i "tenebrion" | head -n 1)
-            if [ -n "$MODDIR" ]; then
-                sh "$MODDIR" &
-            else
-                sh /data/adb/modules/Tenebrion/service.sh &
-            fi
+            /data/adb/modules/TenebrionBattery/Binaries/TenebrionDaemon_arm64 &
         `);
         
         setTimeout(() => {
@@ -152,13 +146,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === 5. SAVING TOGGLES ===
+    // === 5. SAVING TOGGLES & RESTARTING DAEMON ===
     async function saveToggles() {
+        // Disable toggles briefly to prevent spamming the restart command
+        toggleHalf.disabled = true;
+        toggleForgive.disabled = true;
+
         const half = toggleHalf.checked ? 1 : 0;
         const forgive = toggleForgive.checked ? 1 : 0;
         
         const cmd = `
         FILE="/data/Tenebrion/tenebrion.txt"
+        LOG="/data/Tenebrion/tenebrion.log"
         mkdir -p /data/Tenebrion
         touch $FILE
         
@@ -175,8 +174,28 @@ document.addEventListener('DOMContentLoaded', () => {
         else
             echo "TENEBRION_FORGIVE=${forgive}" >> $FILE
         fi
+
+        # 1. Log the update intention
+        NOW=$(date +'%Y-%m-%d %H:%M:%S')
+        echo "[$NOW] Configuration Has Been Updated, Restarting Tenebrion Daemon..." >> $LOG
+
+        # 2. Restart the Daemon directly from WebUI
+        killall TenebrionDaemon_arm64 2>/dev/null
+        /data/adb/modules/TenebrionBattery/Binaries/TenebrionDaemon_arm64 &
+
+        # 3. Log the success
+        NOW=$(date +'%Y-%m-%d %H:%M:%S')
+        echo "[$NOW] Restarted Successfully with new configuration" >> $LOG
         `;
+        
         await execRoot(cmd);
+
+        // Re-enable toggles and refresh dashboard
+        setTimeout(() => {
+            toggleHalf.disabled = false;
+            toggleForgive.disabled = false;
+            loadMainData();
+        }, 1000);
     }
 
     toggleHalf.addEventListener('change', saveToggles);
