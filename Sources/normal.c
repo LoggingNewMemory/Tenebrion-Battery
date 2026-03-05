@@ -6,12 +6,6 @@
 #include <dirent.h>
 
 int main(int argc, char *argv[]) {
-    // Read the passed argument from the daemon (TENEBRION_HALF state)
-    int is_half_active = 0;
-    if (argc > 1) {
-        is_half_active = atoi(argv[1]);
-    }
-
     TenebrionStateConfig cfg;
     load_state_config(&cfg);
 
@@ -74,26 +68,17 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // 3. Apply Tenebrion Constraints (HALF Logic) via RAM Cache
+        // 3. Apply Tenebrion Constraints via RAM Cache
         if (target_node != NULL && target_node->max[0] != '\0') {
             sysfs_write(min_path, target_node->min);
-            
-            if (is_half_active) {
-                sysfs_write(max_path, target_node->mid);
-            } else {
-                sysfs_write(max_path, target_node->max);
-            }
+            sysfs_write(max_path, target_node->max);
         } else {
             char target_min[32] = {0}, target_max[32] = {0};
             
             get_cached_hw_freq(&cfg, policy_idx, "MIN", target_min);
             sysfs_write(min_path, target_min);
 
-            if (is_half_active) {
-                get_cached_hw_freq(&cfg, policy_idx, "MID", target_max);
-            } else {
-                get_cached_hw_freq(&cfg, policy_idx, "MAX", target_max);
-            }
+            get_cached_hw_freq(&cfg, policy_idx, "MAX", target_max);
             sysfs_write(max_path, target_max);
         }
     }

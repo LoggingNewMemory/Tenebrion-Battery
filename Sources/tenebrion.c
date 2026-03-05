@@ -14,8 +14,6 @@ typedef struct {
     bool use_common_path;
     bool use_second_path;
     bool use_compatibility;
-    int half_freq;    // Added for TENEBRION_HALF
-    int forgive_freq; // Added for TENEBRION_FORGIVE
 } TenebrionConfig;
 
 void check_log_size() {
@@ -43,8 +41,6 @@ void load_config(TenebrionConfig *config) {
     config->use_common_path = false;
     config->use_second_path = false;
     config->use_compatibility = false;
-    config->half_freq = 0;    // Default off
-    config->forgive_freq = 0; // Default off
 
     FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
     if (!file) return;
@@ -57,10 +53,6 @@ void load_config(TenebrionConfig *config) {
             config->use_second_path = true;
         } else if (strncmp(line, "TENEBRION_COMPABILITY=1", 23) == 0) {
             config->use_compatibility = true;
-        } else if (strncmp(line, "TENEBRION_HALF=1", 16) == 0) {
-            config->half_freq = 1;
-        } else if (strncmp(line, "TENEBRION_FORGIVE=1", 19) == 0) {
-            config->forgive_freq = 1;
         }
     }
     fclose(file);
@@ -163,15 +155,13 @@ int main() {
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
                 write_log("State Change: Screen ON -> Executing Normal Binary");
-                // Pass the half_freq flag as argv[1]
-                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/normal %d", config.half_freq);
+                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/normal");
                 system(cmd); 
                 asm_write_file("/dev/tenebrion_state", "1\n", 2); 
             } else if (current_state == 0) {
                 printf("[Tenebrion] Screen Off detected. Executing Battery Binary...\n");
                 write_log("State Change: Screen OFF -> Executing Battery Binary");
-                // Pass the forgive_freq flag as argv[1]
-                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/battery %d", config.forgive_freq);
+                snprintf(cmd, sizeof(cmd), "/data/adb/modules/TenebrionBattery/Binaries/battery");
                 system(cmd); 
                 asm_write_file("/dev/tenebrion_state", "0\n", 2); 
             }

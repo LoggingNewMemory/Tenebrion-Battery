@@ -32,8 +32,6 @@ function execRoot(command) {
 document.addEventListener('DOMContentLoaded', () => {
 
     const btnRestart = document.getElementById('btn-restart');
-    const toggleHalf = document.getElementById('toggle-half');
-    const toggleForgive = document.getElementById('toggle-forgive');
 
     let pollingInterval;
     let liveUptimeInterval;
@@ -93,10 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ENDFIELD="0"
         fi
 
-        HALF=$(grep "TENEBRION_HALF=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2)
-        FORGIVE=$(grep "TENEBRION_FORGIVE=" /data/Tenebrion/tenebrion.txt 2>/dev/null | cut -d= -f2)
-        
-        printf '{"device": "%s", "capacity": "%s", "status": "%s", "uptime_sec": "%s", "current_batt": "%s", "half": "%s", "forgive": "%s", "endfield": "%s"}' "$DEVICE" "$CAPACITY" "$STATUS" "$UPTIME_SEC" "$CURRENT" "$HALF" "$FORGIVE" "$ENDFIELD"
+        printf '{"device": "%s", "capacity": "%s", "status": "%s", "uptime_sec": "%s", "current_batt": "%s", "endfield": "%s"}' "$DEVICE" "$CAPACITY" "$STATUS" "$UPTIME_SEC" "$CURRENT" "$ENDFIELD"
         `;
 
         const responseText = await execRoot(bashPayload);
@@ -136,58 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     endfieldWarning.style.display = "none";
                 }
             }
-            
-            if (document.activeElement !== toggleHalf && document.activeElement !== toggleForgive) {
-                toggleHalf.checked = data.half === "1";
-                toggleForgive.checked = data.forgive === "1";
-            }
         } catch (err) {
             console.error("JSON Parse Error:", err);
         }
     }
-
-    // === 5. SAVING TOGGLES ===
-    async function saveToggles() {
-        // Disable toggles briefly 
-        toggleHalf.disabled = true;
-        toggleForgive.disabled = true;
-
-        const half = toggleHalf.checked ? 1 : 0;
-        const forgive = toggleForgive.checked ? 1 : 0;
-        
-        // The daemon's mtime check will automatically detect these edits
-        const cmd = `
-        FILE="/data/Tenebrion/tenebrion.txt"
-        mkdir -p /data/Tenebrion
-        touch $FILE
-        
-        [ -n "$(tail -c 1 $FILE 2>/dev/null)" ] && echo "" >> $FILE
-        
-        if grep -q "^TENEBRION_HALF=" $FILE; then
-            sed -i "s/^TENEBRION_HALF=.*/TENEBRION_HALF=${half}/" $FILE
-        else
-            echo "TENEBRION_HALF=${half}" >> $FILE
-        fi
-
-        if grep -q "^TENEBRION_FORGIVE=" $FILE; then
-            sed -i "s/^TENEBRION_FORGIVE=.*/TENEBRION_FORGIVE=${forgive}/" $FILE
-        else
-            echo "TENEBRION_FORGIVE=${forgive}" >> $FILE
-        fi
-        `;
-        
-        await execRoot(cmd);
-
-        // Re-enable toggles and refresh dashboard
-        setTimeout(() => {
-            toggleHalf.disabled = false;
-            toggleForgive.disabled = false;
-            loadMainData();
-        }, 1000);
-    }
-
-    toggleHalf.addEventListener('change', saveToggles);
-    toggleForgive.addEventListener('change', saveToggles);
 
     // === 6. LIVE POLLING ===
     function startPolling() {
