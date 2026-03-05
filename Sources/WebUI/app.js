@@ -32,6 +32,8 @@ function execRoot(command) {
 document.addEventListener('DOMContentLoaded', () => {
 
     const btnRestart = document.getElementById('btn-restart');
+    const btnCopyLog = document.getElementById('btn-copy-log');
+    const btnDeleteLog = document.getElementById('btn-delete-log');
 
     let pollingInterval;
     let liveUptimeInterval;
@@ -65,6 +67,38 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRestart.style.opacity = "1";
             btnRestart.style.pointerEvents = "auto";
             loadMainData(); 
+        }, 2000);
+    });
+
+    // === 3. LOG MANAGEMENT ACTIONS ===
+    btnCopyLog.addEventListener('click', async () => {
+        btnCopyLog.innerText = "Copying...";
+        btnCopyLog.style.opacity = "0.5";
+        btnCopyLog.style.pointerEvents = "none";
+        
+        // Single copy command
+        await execRoot(`cp /data/Tenebrion/tenebrion.log /sdcard/Download/tenebrion.log`);
+        
+        btnCopyLog.innerText = "Copied!";
+        setTimeout(() => {
+            btnCopyLog.innerText = "Copy Log";
+            btnCopyLog.style.opacity = "1";
+            btnCopyLog.style.pointerEvents = "auto";
+        }, 2000);
+    });
+
+    btnDeleteLog.addEventListener('click', async () => {
+        btnDeleteLog.innerText = "Deleting...";
+        btnDeleteLog.style.opacity = "0.5";
+        btnDeleteLog.style.pointerEvents = "none";
+        
+        await execRoot(`rm -f /data/Tenebrion/tenebrion.log`);
+        
+        btnDeleteLog.innerText = "Deleted!";
+        setTimeout(() => {
+            btnDeleteLog.innerText = "Delete Log";
+            btnDeleteLog.style.opacity = "1";
+            btnDeleteLog.style.pointerEvents = "auto";
         }, 2000);
     });
 
