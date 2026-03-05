@@ -9,12 +9,11 @@ int main(int argc, char *argv[]) {
     TenebrionStateConfig cfg;
     load_state_config(&cfg);
 
-    // 1. Android Framework Power States (via Corin/Raco)
-    system("cmd power set-mode 1 >/dev/null 2>&1");
     system("cmd power set-adaptive-power-saver-enabled true >/dev/null 2>&1");
     system("cmd power set-fixed-performance-mode-enabled false >/dev/null 2>&1");
     system("settings put secure high_priority 0 >/dev/null 2>&1");
     system("settings put secure low_priority 1 >/dev/null 2>&1");
+    system("cmd looper_stats enable >/dev/null 2>&1");
 
     // 2. Core Kernel Powersave Tweaks
     sysfs_write("/sys/module/battery_saver/parameters/enabled", "Y");
@@ -38,7 +37,6 @@ int main(int argc, char *argv[]) {
             snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/scheduler", bdir->d_name);
             sysfs_write(blk_path, "deadline");
 
-            // Aggressive affinity for powersave (corin.sh)
             snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/rq_affinity", bdir->d_name);
             sysfs_write(blk_path, "2"); 
         }

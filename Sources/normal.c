@@ -9,8 +9,6 @@ int main(int argc, char *argv[]) {
     TenebrionStateConfig cfg;
     load_state_config(&cfg);
 
-    // 1. Android Framework Power States (via Corin/Raco)
-    system("cmd power set-mode 0 >/dev/null 2>&1");
     system("cmd power set-adaptive-power-saver-enabled false >/dev/null 2>&1");
     system("cmd power set-fixed-performance-mode-enabled false >/dev/null 2>&1");
     system("settings put secure high_priority 1 >/dev/null 2>&1");
@@ -20,14 +18,6 @@ int main(int argc, char *argv[]) {
     sysfs_write("/sys/module/battery_saver/parameters/enabled", "N");
     sysfs_write("/proc/sys/kernel/split_lock_mitigate", "1");
     sysfs_write("/proc/sys/vm/vfs_cache_pressure", "120");
-    
-    // Restore VM & Sched stats (Raco.sh)
-    sysfs_write("/proc/sys/vm/stat_interval", "1");
-    sysfs_write("/proc/sys/vm/page-cluster", "3");
-
-    // Restore scheduler features
-    sysfs_write("/sys/kernel/debug/sched_features", "NEXT_BUDDY");
-    sysfs_write("/sys/kernel/debug/sched_features", "TTWU_QUEUE");
 
     // EAS / Schedtune Balanced
     sysfs_write("/dev/stune/top-app/schedtune.prefer_idle", "0");
@@ -45,7 +35,7 @@ int main(int argc, char *argv[]) {
             sysfs_write(blk_path, "deadline");
 
             snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/rq_affinity", bdir->d_name);
-            sysfs_write(blk_path, "1"); // Standard balanced affinity
+            sysfs_write(blk_path, "1");
 
             snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/iostats", bdir->d_name);
             sysfs_write(blk_path, "1");
@@ -54,6 +44,9 @@ int main(int argc, char *argv[]) {
             sysfs_write(blk_path, "1");
 
             snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/read_ahead_kb", bdir->d_name);
+            sysfs_write(blk_path, "128");
+
+            snprintf(blk_path, sizeof(blk_path), "/sys/block/%s/queue/nr_requests", bdir->d_name);
             sysfs_write(blk_path, "128");
         }
         closedir(blk);
