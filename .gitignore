@@ -4,3 +4,5 @@ Sources/WebUI/package-lock.json
 Modules/Binaries/*
 Modules/webroot/*
 Build/*
+*.bkp
+*.dtmp
