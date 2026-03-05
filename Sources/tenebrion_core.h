@@ -14,7 +14,6 @@ extern int asm_write_file(const char* path, const char* buffer, int len);
 typedef struct HwFreqNode {
     int policy_idx; 
     char min[32];
-    char mid[32];
     char max[32];
     struct HwFreqNode *next;
 } HwFreqNode;
@@ -31,11 +30,10 @@ void sysfs_write(const char* path, const char* val) {
 }
 
 // Helper to add nodes dynamically to HW frequency cache
-void add_hw_freq_node(TenebrionStateConfig *cfg, int policy_idx, long min_f, long mid_f, long max_f) {
+void add_hw_freq_node(TenebrionStateConfig *cfg, int policy_idx, long min_f, long max_f) {
     HwFreqNode *new_node = (HwFreqNode*)malloc(sizeof(HwFreqNode));
     new_node->policy_idx = policy_idx;
     snprintf(new_node->min, 32, "%ld", min_f);
-    snprintf(new_node->mid, 32, "%ld", mid_f);
     snprintf(new_node->max, 32, "%ld", max_f);
     new_node->next = cfg->hw_freqs;
     cfg->hw_freqs = new_node;
@@ -87,12 +85,7 @@ void build_hw_freq_cache() {
             long max_f = freqs[0];
             long min_f = freqs[count - 1];
             
-            // MID logic replicated from Raco.sh: mid_opp = (((total_opp + 1) / 2)) - 1
-            int mid_idx = ((count + 1) / 2) - 1;
-            if (mid_idx < 0) mid_idx = 0;
-            long mid_f = freqs[mid_idx];
-
-            fprintf(cache, "%d %ld %ld %ld\n", policy_idx, min_f, mid_f, max_f);
+            fprintf(cache, "%d %ld %ld\n", policy_idx, min_f, max_f);
         }
     }
     closedir(d);
@@ -112,9 +105,9 @@ void load_state_config(TenebrionStateConfig *cfg) {
     
     if (cache) {
         int p_idx;
-        long min_f, mid_f, max_f;
-        while (fscanf(cache, "%d %ld %ld %ld", &p_idx, &min_f, &mid_f, &max_f) == 4) {
-            add_hw_freq_node(cfg, p_idx, min_f, mid_f, max_f);
+        long min_f, max_f;
+        while (fscanf(cache, "%d %ld %ld", &p_idx, &min_f, &max_f) == 3) {
+            add_hw_freq_node(cfg, p_idx, min_f, max_f);
         }
         fclose(cache);
     }
@@ -156,7 +149,6 @@ void get_cached_hw_freq(TenebrionStateConfig *cfg, int policy_idx, const char* t
     while (curr != NULL) {
         if (curr->policy_idx == policy_idx) {
             if (strcmp(target, "MIN") == 0) strcpy(out_freq, curr->min);
-            else if (strcmp(target, "MID") == 0) strcpy(out_freq, curr->mid);
             else if (strcmp(target, "MAX") == 0) strcpy(out_freq, curr->max);
             return;
         }
