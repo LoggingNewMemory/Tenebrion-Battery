@@ -18,11 +18,20 @@ typedef struct CustFreqNode {
     struct CustFreqNode *next;
 } CustFreqNode;
 
+// Structure for our cached hardware frequencies
+typedef struct {
+    int policy_idx; // -1 if inactive
+    char min[32];
+    char mid[32];
+    char max[32];
+} HwFreqCache;
+
 typedef struct {
     int half_freq;
     int forgive_freq;
     int cust_freq_enabled;
     CustFreqNode *custom_freqs;
+    HwFreqCache hw_freqs[8]; // Cache for up to 8 CPU policies
 } TenebrionStateConfig;
 
 void sysfs_write(const char* path, const char* val) {
@@ -48,32 +57,126 @@ CustFreqNode* get_or_create_node(TenebrionStateConfig *cfg, int policy_idx) {
     return new_node;
 }
 
+// Builds the Cache in tmpfs (RAM) on initialization
+void build_hw_freq_cache() {
+    FILE *cache = fopen("/dev/tenebrion_hw_freq.cache", "w");
+    if (!cache) return;
+
+    DIR *d = opendir("/sys/devices/system/cpu/cpufreq");
+    if (!d) {
+        fclose(cache);
+        return;
+    }
+
+    struct dirent *dir;
+    long freqs[128];
+
+    while ((dir = readdir(d)) != NULL) {
+        if (strncmp(dir->d_name, "policy", 6) != 0) continue;
+        int policy_idx = atoi(&dir->d_name[6]);
+        
+        char avail_path[256];
+        snprintf(avail_path, sizeof(avail_path), "/sys/devices/system/cpu/cpufreq/%s/scaling_available_frequencies", dir->d_name);
+        
+        FILE *f = fopen(avail_path, "r");
+        if (!f) continue;
+
+        int count = 0;
+        long freq;
+        while (fscanf(f, "%ld", &freq) == 1 && count < 128) {
+            freqs[count++] = freq;
+        }
+        fclose(f);
+
+        if (count > 0) {
+            // Sort Descending (Highest to Lowest)
+            for (int i = 0; i < count - 1; i++) {
+                for (int j = i + 1; j < count; j++) {
+                    if (freqs[i] < freqs[j]) {
+                        long temp = freqs[i];
+                        freqs[i] = freqs[j];
+                        freqs[j] = temp;
+                    }
+                }
+            }
+            
+            long max_f = freqs[0];
+            long min_f = freqs[count - 1];
+            
+            // MID logic replicated from Raco.sh: mid_opp = (((total_opp + 1) / 2)) - 1
+            int mid_idx = ((count + 1) / 2) - 1;
+            if (mid_idx < 0) mid_idx = 0;
+            long mid_f = freqs[mid_idx];
+
+            fprintf(cache, "%d %ld %ld %ld\n", policy_idx, min_f, mid_f, max_f);
+        } else {
+            // Fallback if available_frequencies is empty/missing
+            char hw_min_path[256], hw_max_path[256];
+            snprintf(hw_min_path, sizeof(hw_min_path), "/sys/devices/system/cpu/cpufreq/%s/cpuinfo_min_freq", dir->d_name);
+            snprintf(hw_max_path, sizeof(hw_max_path), "/sys/devices/system/cpu/cpufreq/%s/cpuinfo_max_freq", dir->d_name);
+            
+            long min_f = 0, max_f = 0;
+            f = fopen(hw_min_path, "r"); if (f) { fscanf(f, "%ld", &min_f); fclose(f); }
+            f = fopen(hw_max_path, "r"); if (f) { fscanf(f, "%ld", &max_f); fclose(f); }
+            
+            fprintf(cache, "%d %ld %ld %ld\n", policy_idx, min_f, max_f, max_f);
+        }
+    }
+    closedir(d);
+    fclose(cache);
+}
+
 void load_state_config(TenebrionStateConfig *cfg) {
     memset(cfg, 0, sizeof(TenebrionStateConfig));
     cfg->custom_freqs = NULL; 
+    
+    // Initialize HW cache array to empty
+    for (int i = 0; i < 8; i++) cfg->hw_freqs[i].policy_idx = -1;
 
+    // 1. Read User Config
     FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
-    if (!file) return;
-
-    char line[256];
-    while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, "TENEBRION_HALF=1", 16) == 0) cfg->half_freq = 1;
-        if (strncmp(line, "TENEBRION_FORGIVE=1", 19) == 0) cfg->forgive_freq = 1;
-        if (strncmp(line, "TENEBRION_CUST_FREQ=1", 21) == 0) cfg->cust_freq_enabled = 1;
-        
-        if (strncmp(line, "TENEBRION_CUST_FREQ_", 20) == 0) {
-            int policy_idx;
-            char type[4];
-            char val[32];
-            if (sscanf(line, "TENEBRION_CUST_FREQ_%d_%3[A-Z]=%31s", &policy_idx, type, val) == 3) {
-                CustFreqNode *node = get_or_create_node(cfg, policy_idx);
-                if (strcmp(type, "MIN") == 0) strcpy(node->min, val);
-                else if (strcmp(type, "MID") == 0) strcpy(node->mid, val);
-                else if (strcmp(type, "MAX") == 0) strcpy(node->max, val);
+    if (file) {
+        char line[256];
+        while (fgets(line, sizeof(line), file)) {
+            if (strncmp(line, "TENEBRION_HALF=1", 16) == 0) cfg->half_freq = 1;
+            if (strncmp(line, "TENEBRION_FORGIVE=1", 19) == 0) cfg->forgive_freq = 1;
+            if (strncmp(line, "TENEBRION_CUST_FREQ=1", 21) == 0) cfg->cust_freq_enabled = 1;
+            
+            if (strncmp(line, "TENEBRION_CUST_FREQ_", 20) == 0) {
+                int policy_idx;
+                char type[4];
+                char val[32];
+                if (sscanf(line, "TENEBRION_CUST_FREQ_%d_%3[A-Z]=%31s", &policy_idx, type, val) == 3) {
+                    CustFreqNode *node = get_or_create_node(cfg, policy_idx);
+                    if (strcmp(type, "MIN") == 0) strcpy(node->min, val);
+                    else if (strcmp(type, "MID") == 0) strcpy(node->mid, val);
+                    else if (strcmp(type, "MAX") == 0) strcpy(node->max, val);
+                }
             }
         }
+        fclose(file);
     }
-    fclose(file);
+
+    // 2. Read HW Freq Cache (Self-healing mechanism)
+    FILE *cache = fopen("/dev/tenebrion_hw_freq.cache", "r");
+    if (!cache) {
+        build_hw_freq_cache();
+        cache = fopen("/dev/tenebrion_hw_freq.cache", "r");
+    }
+    
+    if (cache) {
+        int p_idx;
+        long min_f, mid_f, max_f;
+        while (fscanf(cache, "%d %ld %ld %ld", &p_idx, &min_f, &mid_f, &max_f) == 4) {
+            if (p_idx >= 0 && p_idx < 8) {
+                cfg->hw_freqs[p_idx].policy_idx = p_idx;
+                snprintf(cfg->hw_freqs[p_idx].min, 32, "%ld", min_f);
+                snprintf(cfg->hw_freqs[p_idx].mid, 32, "%ld", mid_f);
+                snprintf(cfg->hw_freqs[p_idx].max, 32, "%ld", max_f);
+            }
+        }
+        fclose(cache);
+    }
 }
 
 void free_state_config(TenebrionStateConfig *cfg) {
@@ -103,40 +206,15 @@ void apply_block_tweaks(const char* scheduler, const char* rq_affinity) {
     closedir(d);
 }
 
-void get_freq_from_list(const char* policy_path, const char* target, char* out_freq) {
-    char avail_path[256];
-    char buf[2048];
-    snprintf(avail_path, sizeof(avail_path), "%s/scaling_available_frequencies", policy_path);
+// Retrieves instantly from O(1) memory cache.
+void get_cached_hw_freq(TenebrionStateConfig *cfg, int policy_idx, const char* target, char* out_freq) {
+    out_freq[0] = '\0'; 
+    if (policy_idx < 0 || policy_idx >= 8) return;
     
-    memset(buf, 0, sizeof(buf));
-    if (asm_read_file(avail_path, buf, sizeof(buf) - 1) <= 0) return;
-
-    int freqs[64];
-    int count = 0;
-    char *token = strtok(buf, " \t\n");
-    while (token && count < 64) {
-        freqs[count++] = atoi(token);
-        token = strtok(NULL, " \t\n");
-    }
-
-    if (count == 0) return;
-
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = 0; j < count - i - 1; j++) {
-            if (freqs[j] > freqs[j+1]) {
-                int temp = freqs[j];
-                freqs[j] = freqs[j+1];
-                freqs[j+1] = temp;
-            }
-        }
-    }
-
-    if (strcmp(target, "MIN") == 0) {
-        snprintf(out_freq, 32, "%d", freqs[0]);
-    } else if (strcmp(target, "MAX") == 0) {
-        snprintf(out_freq, 32, "%d", freqs[count - 1]);
-    } else if (strcmp(target, "MID") == 0) {
-        snprintf(out_freq, 32, "%d", freqs[count / 2]);
+    if (cfg->hw_freqs[policy_idx].policy_idx == policy_idx) {
+        if (strcmp(target, "MIN") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].min);
+        else if (strcmp(target, "MID") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].mid);
+        else if (strcmp(target, "MAX") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].max);
     }
 }
 

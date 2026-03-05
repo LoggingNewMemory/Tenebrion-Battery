@@ -1,7 +1,17 @@
 #include "tenebrion_core.h"
 #include <sys/system_properties.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Read the passed argument from the daemon (TENEBRION_FORGIVE state)
+    int is_forgive_active = 0;
+    if (argc > 1) {
+        is_forgive_active = atoi(argv[1]);
+    }
+
     TenebrionStateConfig cfg;
     load_state_config(&cfg);
 
@@ -53,12 +63,11 @@ int main() {
             }
         }
 
-        // 3. Apply Tenebrion Constraints (FORGIVE logic evaluates here)
+        // 3. Apply Tenebrion Constraints (FORGIVE logic) via RAM Cache
         if (target_node != NULL && target_node->min[0] != '\0') {
             sysfs_write(min_path, target_node->min);
             
-            // TENEBRION_FORGIVE Implementation
-            if (cfg.forgive_freq) {
+            if (is_forgive_active) {
                 sysfs_write(max_path, target_node->mid);
             } else {
                 sysfs_write(max_path, target_node->min); // Lock to absolute min
@@ -66,14 +75,13 @@ int main() {
         } else {
             char target_min[32] = {0}, target_max[32] = {0};
             
-            get_freq_from_list(path, "MIN", target_min);
+            get_cached_hw_freq(&cfg, policy_idx, "MIN", target_min);
             sysfs_write(min_path, target_min);
 
-            // TENEBRION_FORGIVE Dynamic Implementation
-            if (cfg.forgive_freq) {
-                get_freq_from_list(path, "MID", target_max);
+            if (is_forgive_active) {
+                get_cached_hw_freq(&cfg, policy_idx, "MID", target_max);
             } else {
-                get_freq_from_list(path, "MIN", target_max); 
+                get_cached_hw_freq(&cfg, policy_idx, "MIN", target_max); 
             }
             sysfs_write(max_path, target_max);
         }

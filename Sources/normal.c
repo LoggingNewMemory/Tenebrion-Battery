@@ -1,7 +1,17 @@
 #include "tenebrion_core.h"
 #include <sys/system_properties.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Read the passed argument from the daemon (TENEBRION_HALF state)
+    int is_half_active = 0;
+    if (argc > 1) {
+        is_half_active = atoi(argv[1]);
+    }
+
     TenebrionStateConfig cfg;
     load_state_config(&cfg);
 
@@ -64,12 +74,11 @@ int main() {
             }
         }
 
-        // 3. Apply Tenebrion Constraints (HALF Logic evaluates here)
+        // 3. Apply Tenebrion Constraints (HALF Logic) via RAM Cache
         if (target_node != NULL && target_node->max[0] != '\0') {
             sysfs_write(min_path, target_node->min);
             
-            // TENEBRION_HALF Implementation
-            if (cfg.half_freq) {
+            if (is_half_active) {
                 sysfs_write(max_path, target_node->mid);
             } else {
                 sysfs_write(max_path, target_node->max);
@@ -77,14 +86,13 @@ int main() {
         } else {
             char target_min[32] = {0}, target_max[32] = {0};
             
-            get_freq_from_list(path, "MIN", target_min);
+            get_cached_hw_freq(&cfg, policy_idx, "MIN", target_min);
             sysfs_write(min_path, target_min);
 
-            // TENEBRION_HALF Dynamic Implementation
-            if (cfg.half_freq) {
-                get_freq_from_list(path, "MID", target_max);
+            if (is_half_active) {
+                get_cached_hw_freq(&cfg, policy_idx, "MID", target_max);
             } else {
-                get_freq_from_list(path, "MAX", target_max);
+                get_cached_hw_freq(&cfg, policy_idx, "MAX", target_max);
             }
             sysfs_write(max_path, target_max);
         }
