@@ -7,11 +7,9 @@
 #include <unistd.h>
 #include <dirent.h>
 
-// External ARM64 Assembly functions from utils_arm64.S
 extern int asm_read_file(const char* path, char* buffer, int max_len);
 extern int asm_write_file(const char* path, const char* buffer, int len);
 
-// Linked List Node for limitless custom frequencies
 typedef struct CustFreqNode {
     int policy_idx;
     char min[32];
@@ -20,22 +18,19 @@ typedef struct CustFreqNode {
     struct CustFreqNode *next;
 } CustFreqNode;
 
-// Tenebrion Configuration Structure
 typedef struct {
     int half_freq;
     int forgive_freq;
     int cust_freq_enabled;
-    CustFreqNode *custom_freqs; // Head of the linked list
+    CustFreqNode *custom_freqs;
 } TenebrionStateConfig;
 
-// Wrapper for ASM write
 void sysfs_write(const char* path, const char* val) {
     if (val != NULL) {
         asm_write_file(path, val, strlen(val));
     }
 }
 
-// Helper to find or create a node for a specific policy
 CustFreqNode* get_or_create_node(TenebrionStateConfig *cfg, int policy_idx) {
     CustFreqNode *curr = cfg->custom_freqs;
     while (curr != NULL) {
@@ -43,7 +38,6 @@ CustFreqNode* get_or_create_node(TenebrionStateConfig *cfg, int policy_idx) {
         curr = curr->next;
     }
     
-    // Create new node if not found
     CustFreqNode *new_node = (CustFreqNode*)malloc(sizeof(CustFreqNode));
     new_node->policy_idx = policy_idx;
     memset(new_node->min, 0, 32);
@@ -54,15 +48,14 @@ CustFreqNode* get_or_create_node(TenebrionStateConfig *cfg, int policy_idx) {
     return new_node;
 }
 
-// Parse tenebrion.txt
 void load_state_config(TenebrionStateConfig *cfg) {
     memset(cfg, 0, sizeof(TenebrionStateConfig));
-    cfg->custom_freqs = NULL; // Initialize list to empty
+    cfg->custom_freqs = NULL; 
 
     FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
+    if (!file) return;
+
     char line[256];
-    
-    // Parses constraints and dynamically maps custom frequencies mapped to any policy integer
     while (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "TENEBRION_HALF=1", 16) == 0) cfg->half_freq = 1;
         if (strncmp(line, "TENEBRION_FORGIVE=1", 19) == 0) cfg->forgive_freq = 1;
@@ -83,7 +76,6 @@ void load_state_config(TenebrionStateConfig *cfg) {
     fclose(file);
 }
 
-// Free the linked list to prevent memory leaks
 void free_state_config(TenebrionStateConfig *cfg) {
     CustFreqNode *curr = cfg->custom_freqs;
     while (curr != NULL) {
@@ -93,7 +85,6 @@ void free_state_config(TenebrionStateConfig *cfg) {
     }
 }
 
-// Universal Queue/Block tweaks
 void apply_block_tweaks(const char* scheduler, const char* rq_affinity) {
     DIR *d = opendir("/sys/block");
     if (!d) return;
@@ -112,7 +103,6 @@ void apply_block_tweaks(const char* scheduler, const char* rq_affinity) {
     closedir(d);
 }
 
-// Reads available frequencies and extracts a specific target (min, mid, max)
 void get_freq_from_list(const char* policy_path, const char* target, char* out_freq) {
     char avail_path[256];
     char buf[2048];
@@ -131,7 +121,6 @@ void get_freq_from_list(const char* policy_path, const char* target, char* out_f
 
     if (count == 0) return;
 
-    // Simple bubble sort
     for (int i = 0; i < count - 1; i++) {
         for (int j = 0; j < count - i - 1; j++) {
             if (freqs[j] > freqs[j+1]) {
@@ -151,7 +140,6 @@ void get_freq_from_list(const char* policy_path, const char* target, char* out_f
     }
 }
 
-// Reset CPU frequency bounds before applying constraints
 void reset_cpu_limits(const char* policy_path) {
     char min_path[256], max_path[256], hw_min_path[256], hw_max_path[256];
     char hw_min[32] = {0}, hw_max[32] = {0};

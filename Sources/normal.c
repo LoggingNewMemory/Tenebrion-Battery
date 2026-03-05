@@ -52,7 +52,6 @@ int main() {
         snprintf(min_path, sizeof(min_path), "%s/scaling_min_freq", path);
         snprintf(max_path, sizeof(max_path), "%s/scaling_max_freq", path);
 
-        // Find linked list node for this specific policy
         CustFreqNode *target_node = NULL;
         if (cfg.cust_freq_enabled) {
             CustFreqNode *curr = cfg.custom_freqs;
@@ -65,22 +64,23 @@ int main() {
             }
         }
 
-        // 3. Apply Tenebrion Constraints
+        // 3. Apply Tenebrion Constraints (HALF Logic evaluates here)
         if (target_node != NULL && target_node->max[0] != '\0') {
             sysfs_write(min_path, target_node->min);
             
+            // TENEBRION_HALF Implementation
             if (cfg.half_freq) {
                 sysfs_write(max_path, target_node->mid);
             } else {
                 sysfs_write(max_path, target_node->max);
             }
         } else {
-            // Dynamic generation if custom frequencies aren't mapped
             char target_min[32] = {0}, target_max[32] = {0};
             
             get_freq_from_list(path, "MIN", target_min);
             sysfs_write(min_path, target_min);
 
+            // TENEBRION_HALF Dynamic Implementation
             if (cfg.half_freq) {
                 get_freq_from_list(path, "MID", target_max);
             } else {
@@ -91,6 +91,6 @@ int main() {
     }
     
     closedir(d);
-    free_state_config(&cfg); // Clean memory allocation
+    free_state_config(&cfg); 
     return 0;
 }

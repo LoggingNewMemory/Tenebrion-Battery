@@ -4,19 +4,27 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <time.h>
+#include <sys/stat.h>
 
 // External ARM64 Assembly functions
 extern int asm_read_file(const char* path, char* buffer, int max_len);
 extern int asm_write_file(const char* path, const char* buffer, int len);
 
-// Configuration Structure
 typedef struct {
     bool use_common_path;
     bool use_second_path;
     bool use_compatibility;
 } TenebrionConfig;
 
-// Function to write to the execution log
+void check_log_size() {
+    struct stat st;
+    if (stat("/data/Tenebrion/tenebrion.log", &st) == 0) {
+        if (st.st_size >= 50 * 1024) { 
+            remove("/data/Tenebrion/tenebrion.log");
+        }
+    }
+}
+
 void write_log(const char *message) {
     FILE *logfile = fopen("/data/Tenebrion/tenebrion.log", "a");
     if (logfile) {
@@ -29,7 +37,6 @@ void write_log(const char *message) {
     }
 }
 
-// Function to load config from tenebrion.txt once at startup
 void load_config(TenebrionConfig *config) {
     config->use_common_path = false;
     config->use_second_path = false;
@@ -51,19 +58,23 @@ void load_config(TenebrionConfig *config) {
     fclose(file);
 }
 
-// Function to detect Endfield Engine
+time_t get_file_mtime(const char *path) {
+    struct stat statbuf;
+    if (stat(path, &statbuf) == -1) {
+        return 0;
+    }
+    return statbuf.st_mtime;
+}
+
 bool detect_endfield() {
     if (system("pgrep -x Endfield > /dev/null 2>&1") == 0) return true;
     return false;
 }
 
-// Function to get screen state based on the loaded configuration
-// Returns: 1 (On), 0 (Off), -1 (Unknown)
 int get_screen_state(TenebrionConfig *config) {
     char buf[64];
     int len;
 
-    // 1. Common Path
     if (config->use_common_path) {
         memset(buf, 0, sizeof(buf));
         len = asm_read_file("/sys/class/drm/card0-DSI-1/dpms", buf, sizeof(buf) - 1);
@@ -74,7 +85,6 @@ int get_screen_state(TenebrionConfig *config) {
         return -1; 
     }
 
-    // 2. Second Path
     if (config->use_second_path) {
         memset(buf, 0, sizeof(buf));
         len = asm_read_file("/sys/class/leds/lcd-backlight/brightness", buf, sizeof(buf) - 1);
@@ -86,7 +96,6 @@ int get_screen_state(TenebrionConfig *config) {
         return -1;
     }
 
-    // 3. Compatibility Path
     if (config->use_compatibility) {
         FILE *fp = popen("cmd deviceidle get screen", "r");
         if (fp) {
@@ -107,12 +116,15 @@ int get_screen_state(TenebrionConfig *config) {
 int main() {
     int current_state = -1;
     int last_state = -1;
+    time_t last_mtime = 0;
     TenebrionConfig config;
 
+    check_log_size();
     printf("[Tenebrion] Initializing daemon...\n");
     write_log("Daemon initialized and started.");
 
     load_config(&config);
+    last_mtime = get_file_mtime("/data/Tenebrion/tenebrion.txt");
     
     printf("[Tenebrion] Active Screen Path: Common=%d, Second=%d, Compat=%d\n", 
            config.use_common_path, config.use_second_path, config.use_compatibility);
@@ -124,10 +136,21 @@ int main() {
             exit(1);
         }
 
+        // WebUI Hot-Reloading Logic
+        time_t current_mtime = get_file_mtime("/data/Tenebrion/tenebrion.txt");
+        if (current_mtime > last_mtime && last_mtime != 0) {
+            write_log("Configuration Has Been Updated, Restarting Tenebrion Daemon...");
+            load_config(&config);
+            write_log("Restarted Successfully with new configuration");
+            last_mtime = current_mtime;
+            last_state = -1; // Force state re-evaluation on next loop
+        } else if (last_mtime == 0) {
+            last_mtime = current_mtime;
+        }
+
         current_state = get_screen_state(&config);
 
         if (current_state != -1 && current_state != last_state) {
-            
             if (current_state == 1) {
                 printf("[Tenebrion] Screen On detected. Executing Normal Binary...\n");
                 write_log("State Change: Screen ON -> Executing Normal Binary");
