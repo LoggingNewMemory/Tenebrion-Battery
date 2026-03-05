@@ -45,31 +45,14 @@ int main(int argc, char *argv[]) {
         snprintf(min_path, sizeof(min_path), "%s/scaling_min_freq", path);
         snprintf(max_path, sizeof(max_path), "%s/scaling_max_freq", path);
 
-        CustFreqNode *target_node = NULL;
-        if (cfg.cust_freq_enabled) {
-            CustFreqNode *curr = cfg.custom_freqs;
-            while (curr != NULL) {
-                if (curr->policy_idx == policy_idx) {
-                    target_node = curr;
-                    break;
-                }
-                curr = curr->next;
-            }
-        }
-
         // 3. Apply Tenebrion Constraints via RAM Cache
-        if (target_node != NULL && target_node->min[0] != '\0') {
-            sysfs_write(min_path, target_node->min);
-            sysfs_write(max_path, target_node->min); // Lock to absolute min
-        } else {
-            char target_min[32] = {0}, target_max[32] = {0};
-            
-            get_cached_hw_freq(&cfg, policy_idx, "MIN", target_min);
-            sysfs_write(min_path, target_min);
+        char target_min[32] = {0}, target_max[32] = {0};
+        
+        get_cached_hw_freq(&cfg, policy_idx, "MIN", target_min);
+        sysfs_write(min_path, target_min);
 
-            get_cached_hw_freq(&cfg, policy_idx, "MIN", target_max); 
-            sysfs_write(max_path, target_max);
-        }
+        get_cached_hw_freq(&cfg, policy_idx, "MIN", target_max); 
+        sysfs_write(max_path, target_max); // Lock to absolute min
     }
     
     closedir(d);

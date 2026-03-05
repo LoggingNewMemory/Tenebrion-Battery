@@ -10,29 +10,20 @@
 extern int asm_read_file(const char* path, char* buffer, int max_len);
 extern int asm_write_file(const char* path, const char* buffer, int len);
 
-typedef struct CustFreqNode {
-    int policy_idx;
+// Structure for our cached hardware frequencies (Linked List for unlimited policies)
+typedef struct HwFreqNode {
+    int policy_idx; 
     char min[32];
     char mid[32];
     char max[32];
-    struct CustFreqNode *next;
-} CustFreqNode;
-
-// Structure for our cached hardware frequencies
-typedef struct {
-    int policy_idx; // -1 if inactive
-    char min[32];
-    char mid[32];
-    char max[32];
-} HwFreqCache;
+    struct HwFreqNode *next;
+} HwFreqNode;
 
 typedef struct {
-    int cust_freq_enabled;
-    CustFreqNode *custom_freqs;
-    HwFreqCache hw_freqs[8]; // Cache for up to 8 CPU policies
+    HwFreqNode *hw_freqs; // Dynamically handles any number of CPU clusters
 } TenebrionStateConfig;
 
-// FIX: Sysfs writes often require a newline '\n' to be parsed and committed by the kernel properly.
+// Sysfs writes often require a newline '\n' to be parsed and committed by the kernel properly.
 void sysfs_write(const char* path, const char* val) {
     if (val != NULL && val[0] != '\0') {
         char buf[64];
@@ -41,21 +32,15 @@ void sysfs_write(const char* path, const char* val) {
     }
 }
 
-CustFreqNode* get_or_create_node(TenebrionStateConfig *cfg, int policy_idx) {
-    CustFreqNode *curr = cfg->custom_freqs;
-    while (curr != NULL) {
-        if (curr->policy_idx == policy_idx) return curr;
-        curr = curr->next;
-    }
-    
-    CustFreqNode *new_node = (CustFreqNode*)malloc(sizeof(CustFreqNode));
+// Helper to add nodes dynamically to HW frequency cache
+void add_hw_freq_node(TenebrionStateConfig *cfg, int policy_idx, long min_f, long mid_f, long max_f) {
+    HwFreqNode *new_node = (HwFreqNode*)malloc(sizeof(HwFreqNode));
     new_node->policy_idx = policy_idx;
-    memset(new_node->min, 0, 32);
-    memset(new_node->mid, 0, 32);
-    memset(new_node->max, 0, 32);
-    new_node->next = cfg->custom_freqs;
-    cfg->custom_freqs = new_node;
-    return new_node;
+    snprintf(new_node->min, 32, "%ld", min_f);
+    snprintf(new_node->mid, 32, "%ld", mid_f);
+    snprintf(new_node->max, 32, "%ld", max_f);
+    new_node->next = cfg->hw_freqs;
+    cfg->hw_freqs = new_node;
 }
 
 // Builds the Cache in tmpfs (RAM) on initialization
@@ -110,21 +95,6 @@ void build_hw_freq_cache() {
             long mid_f = freqs[mid_idx];
 
             fprintf(cache, "%d %ld %ld %ld\n", policy_idx, min_f, mid_f, max_f);
-        } else {
-            // Fallback if available_frequencies is empty/missing
-            char hw_min_path[256], hw_max_path[256];
-            snprintf(hw_min_path, sizeof(hw_min_path), "/sys/devices/system/cpu/cpufreq/%s/cpuinfo_min_freq", dir->d_name);
-            snprintf(hw_max_path, sizeof(hw_max_path), "/sys/devices/system/cpu/cpufreq/%s/cpuinfo_max_freq", dir->d_name);
-            
-            long min_f = 0, max_f = 0;
-            f = fopen(hw_min_path, "r"); if (f) { fscanf(f, "%ld", &min_f); fclose(f); }
-            f = fopen(hw_max_path, "r"); if (f) { fscanf(f, "%ld", &max_f); fclose(f); }
-            
-            // FIX: If count == 0, previously mid_f was forced to max_f. 
-            // Calculate an actual mathematical midpoint instead.
-            long mid_f = min_f + ((max_f - min_f) / 2);
-            
-            fprintf(cache, "%d %ld %ld %ld\n", policy_idx, min_f, mid_f, max_f);
         }
     }
     closedir(d);
@@ -133,34 +103,9 @@ void build_hw_freq_cache() {
 
 void load_state_config(TenebrionStateConfig *cfg) {
     memset(cfg, 0, sizeof(TenebrionStateConfig));
-    cfg->custom_freqs = NULL; 
-    
-    // Initialize HW cache array to empty
-    for (int i = 0; i < 8; i++) cfg->hw_freqs[i].policy_idx = -1;
+    cfg->hw_freqs = NULL; 
 
-    // 1. Read User Config
-    FILE *file = fopen("/data/Tenebrion/tenebrion.txt", "r");
-    if (file) {
-        char line[256];
-        while (fgets(line, sizeof(line), file)) {
-            if (strncmp(line, "TENEBRION_CUST_FREQ=1", 21) == 0) cfg->cust_freq_enabled = 1;
-            
-            if (strncmp(line, "TENEBRION_CUST_FREQ_", 20) == 0) {
-                int policy_idx;
-                char type[4];
-                char val[32];
-                if (sscanf(line, "TENEBRION_CUST_FREQ_%d_%3[A-Z]=%31s", &policy_idx, type, val) == 3) {
-                    CustFreqNode *node = get_or_create_node(cfg, policy_idx);
-                    if (strcmp(type, "MIN") == 0) strcpy(node->min, val);
-                    else if (strcmp(type, "MID") == 0) strcpy(node->mid, val);
-                    else if (strcmp(type, "MAX") == 0) strcpy(node->max, val);
-                }
-            }
-        }
-        fclose(file);
-    }
-
-    // 2. Read HW Freq Cache (Self-healing mechanism)
+    // Read HW Freq Cache (Self-healing mechanism)
     FILE *cache = fopen("/dev/tenebrion_hw_freq.cache", "r");
     if (!cache) {
         build_hw_freq_cache();
@@ -171,23 +116,19 @@ void load_state_config(TenebrionStateConfig *cfg) {
         int p_idx;
         long min_f, mid_f, max_f;
         while (fscanf(cache, "%d %ld %ld %ld", &p_idx, &min_f, &mid_f, &max_f) == 4) {
-            if (p_idx >= 0 && p_idx < 8) {
-                cfg->hw_freqs[p_idx].policy_idx = p_idx;
-                snprintf(cfg->hw_freqs[p_idx].min, 32, "%ld", min_f);
-                snprintf(cfg->hw_freqs[p_idx].mid, 32, "%ld", mid_f);
-                snprintf(cfg->hw_freqs[p_idx].max, 32, "%ld", max_f);
-            }
+            add_hw_freq_node(cfg, p_idx, min_f, mid_f, max_f);
         }
         fclose(cache);
     }
 }
 
 void free_state_config(TenebrionStateConfig *cfg) {
-    CustFreqNode *curr = cfg->custom_freqs;
-    while (curr != NULL) {
-        CustFreqNode *next = curr->next;
-        free(curr);
-        curr = next;
+    // Free hw freqs list
+    HwFreqNode *curr_hw = cfg->hw_freqs;
+    while (curr_hw != NULL) {
+        HwFreqNode *next = curr_hw->next;
+        free(curr_hw);
+        curr_hw = next;
     }
 }
 
@@ -209,15 +150,19 @@ void apply_block_tweaks(const char* scheduler, const char* rq_affinity) {
     closedir(d);
 }
 
-// Retrieves instantly from O(1) memory cache.
+// Retrieves instantly from dynamic RAM cache mapping.
 void get_cached_hw_freq(TenebrionStateConfig *cfg, int policy_idx, const char* target, char* out_freq) {
     out_freq[0] = '\0'; 
-    if (policy_idx < 0 || policy_idx >= 8) return;
+    HwFreqNode *curr = cfg->hw_freqs;
     
-    if (cfg->hw_freqs[policy_idx].policy_idx == policy_idx) {
-        if (strcmp(target, "MIN") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].min);
-        else if (strcmp(target, "MID") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].mid);
-        else if (strcmp(target, "MAX") == 0) strcpy(out_freq, cfg->hw_freqs[policy_idx].max);
+    while (curr != NULL) {
+        if (curr->policy_idx == policy_idx) {
+            if (strcmp(target, "MIN") == 0) strcpy(out_freq, curr->min);
+            else if (strcmp(target, "MID") == 0) strcpy(out_freq, curr->mid);
+            else if (strcmp(target, "MAX") == 0) strcpy(out_freq, curr->max);
+            return;
+        }
+        curr = curr->next;
     }
 }
 
