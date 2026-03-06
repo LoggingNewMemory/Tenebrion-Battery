@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if pgrep -f TenebrionDaemon >/dev/null 2>&1; then STATUS="Running"; else STATUS="Stopped"; fi
 
-        if pgrep -i -f "endfield" >/dev/null 2>&1 || pgrep -i -f "raco" >/dev/null 2>&1; then
+        if pgrep -i -f "endfield" >/dev/null 2>&1; then
             ENDFIELD="1"
         else
             ENDFIELD="0"
