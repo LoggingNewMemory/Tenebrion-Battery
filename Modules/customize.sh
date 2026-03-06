@@ -9,6 +9,20 @@ ui_print "------------------------------------"
 ui_print " "
 sleep 0.5
 
+# --- ARM64 ARCHITECTURE DETECTOR ---
+# Check if the device ABI starts with "arm64" (matches arm64-v8a)
+DEVICE_ABI=$(getprop ro.product.cpu.abi)
+case "$DEVICE_ABI" in
+    arm64*)
+        # arm64 detected, continue installation
+        ;;
+    *)
+        ui_print "! ERROR: Unsupported architecture ($DEVICE_ABI)."
+        abort "! Tenebrion Battery strictly requires an arm64 device."
+        ;;
+esac
+# ------------------------------------
+
 ui_print "------------------------------------"
 ui_print "            DEVICE INFO             "
 ui_print "------------------------------------"
@@ -66,6 +80,24 @@ if [ ! -f "$CONFIG_FILE" ]; then
     sed -i "s/^TENEBRION_COMPABILITY=.*/TENEBRION_COMPABILITY=$COMPAT_PATH/" $CONFIG_FILE
 else
     ui_print "- Existing configuration found. SKIPPING"
+fi
+
+if [ "$(which magisk)" ]; then
+	extract "$ZIPFILE" 'action.sh' $MODPATH
+
+	if ! pm list packages | grep -q io.github.a13e300.ksuwebui; then
+		ui_print "- Magisk detected, Installing KSU WebUI for Magisk"
+        cp "$MODPATH"/webui.apk /data/local/tmp >/dev/null 2>&1
+        pm install /data/local/tmp/webui.apk >/dev/null 2>&1
+        rm /data/local/tmp/webui.apk >/dev/null 2>&1
+	fi
+
+	if ! pm list packages | grep -q io.github.a13e300.ksuwebui; then
+		ui_print "! Can't install KSU WebUI due to selinux restrictions"
+		ui_print "! Please install the app manually after installation."
+	else
+		ui_print "- Please grant root permission for KSU WebUI"
+	fi
 fi
 
 ui_print " "
