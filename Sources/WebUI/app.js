@@ -147,22 +147,26 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('battery-capacity').innerText = cap + " mAh";
             
+            // Dynamic Status & Warning Logic
             const elStatus = document.getElementById('service-status');
-            const endfieldWarning = document.getElementById('endfield-warning');
+            const statusWarning = document.getElementById('status-warning');
+            const warningText = document.getElementById('warning-text');
 
             if (data.status === "Running") {
                 elStatus.innerText = "Running";
                 elStatus.style.color = "#4CAF50"; 
-                endfieldWarning.style.display = "none";
+                statusWarning.style.display = "none";
             } else {
                 if (data.endfield === "1") {
                     elStatus.innerText = "Blocked";
                     elStatus.style.color = "var(--red-accent)";
-                    endfieldWarning.style.display = "flex";
+                    warningText.innerText = "Endfield Engine Detected. Please stop Endfield Engine then click the button below to restart.";
+                    statusWarning.style.display = "flex";
                 } else {
                     elStatus.innerText = "Stopped";
                     elStatus.style.color = "var(--text-muted)";
-                    endfieldWarning.style.display = "none";
+                    warningText.innerText = "Daemon is stopped. Attempt to restart Tenebrion Daemon?";
+                    statusWarning.style.display = "flex";
                 }
             }
         } catch (err) {
